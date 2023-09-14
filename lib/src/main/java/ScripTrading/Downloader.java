@@ -27,23 +27,26 @@ public class Downloader {
 	public static void main(String[] args) throws Exception {
 		Downloader downloader = new Downloader();
 		
-		String scrip = "MSFT";
+		String scrip = "QQQ";
 		//String wday = "2023-08-25";
 		//int startPrice = 450000;
 		//int endPrice = 475000;
-		int increment = 2500;
+		int increment = 1000;
+		boolean writeCache = false;
 		//String sym = "O:"+scrip+"230825";
 		
-		
-		Map<String, DayData> dayDataMap = Util.deserializeHashMap("config/MSFT.txt");
+		Map<String, DayData> dayDataMap = null;
+		if (writeCache) {
+			dayDataMap = Util.deserializeHashMap("config/QQQ.txt");
+		}
 		if (dayDataMap == null) {
 			System.out.println("Error reading cache");
 			dayDataMap = new LinkedHashMap<>();
 		}
 		//Map<String, DayData> dayDataMap = new LinkedHashMap<>();
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date startDate = sdf.parse("2023-01-01");
-		Date endDate = sdf.parse("2023-08-29");
+		Date startDate = sdf.parse("2023-08-29");
+		Date endDate = sdf.parse("2023-08-30");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		String nowDate = sdf.format(calendar.getTime());
@@ -78,12 +81,13 @@ public class Downloader {
 			
 			int startPrice = (int) (dayLow * 1000) - (int) ((dayLow * 1000) % increment);
 			int endPrice = ((int) (dayHigh * 1000) - (int) ((dayHigh * 1000) % increment));
-			String expiryDate = getThisWeekExpiry(currentDateString, expiryDates);
+			String expiryDate = (scrip.equals("QQQ")) ? currentDateString : getThisWeekExpiry(currentDateString, expiryDates);
 			expiryDate = expiryDate.substring(2, 4) + expiryDate.substring(5, 7) + expiryDate.substring(8, 10);
 			String sym = "O:"+scrip+expiryDate;
 			
 			Map<Double, Map<String, MinuteData>> callDataMap = new LinkedHashMap<>();
 			int cntr=startPrice;
+			if (currentDateString.compareTo("2022-12-01") >= 0) {
 			while (cntr<=endPrice) {
 				Map<String, MinuteData> callDatamap = downloader.downloadStockPrice("https://api.polygon.io/v2/aggs/ticker/"+sym+"C00"+cntr+"/range/5/minute/"+currentDateString+"/"+currentDateString+"?adjusted=true&sort=asc&apiKey=6xGq1Yv1LmfdH4fyoThIJphP7J3pdmRS");
 				double cntrPrice = cntr / 1000;
@@ -92,11 +96,15 @@ public class Downloader {
 				cntr = cntr + increment;
 				//Thread.sleep(20000);
 			}
+			}
 			
-	        Map<Double, Map<String, MinuteData>> putDataMap = new LinkedHashMap<>();
+			//System.out.println(callDataMap);
+			
+	        /*Map<Double, Map<String, MinuteData>> putDataMap = new LinkedHashMap<>();
 	        startPrice = startPrice + increment;
 			endPrice = endPrice + increment;
 			int pcntr=startPrice;
+			if (currentDateString.compareTo("2022-12-01") >= 0) {
 			while (pcntr<=endPrice) {
 				Map<String, MinuteData> putDatamap = downloader.downloadStockPrice("https://api.polygon.io/v2/aggs/ticker/"+sym+"P00"+pcntr+"/range/5/minute/"+currentDateString+"/"+currentDateString+"?adjusted=true&sort=asc&apiKey=6xGq1Yv1LmfdH4fyoThIJphP7J3pdmRS");
 				double pcntrPrice = pcntr / 1000;
@@ -105,34 +113,46 @@ public class Downloader {
 				pcntr = pcntr + increment;
 				//Thread.sleep(20000);
 			}
+			}*/
+			//System.out.println(putDataMap);
 			
 			Map<String, Double> premiumMap = new LinkedHashMap<>();
+			if (currentDateString.compareTo("2022-12-01") >= 0) {
 			for (String fiveMinute : minuteDataMap.keySet()) {
 				double closePrice = minuteDataMap.get(fiveMinute).getClosePrice();
+				double dayopenprice = minuteDataMap.get("06:30").getOpenPrice();
 				
 				double prevCallKey = 0.0;
 				for (Double callKey : callDataMap.keySet()) {
-					if(callKey > closePrice) {
+					if(callKey > dayopenprice) {//closePrice) {
 						break;
 					}
 					prevCallKey = callKey;
 				}
 				
-				double curPutKey = 0.0;
+				/*double curPutKey = 0.0;
 				for (Double putKey : putDataMap.keySet()) {
 					curPutKey = putKey;
 					if(putKey > closePrice) {
 						break;
 					}
-				}
+				}*/
 				
-				double totalPremium = callDataMap.get(prevCallKey).get(fiveMinute).getClosePrice() + putDataMap.get(curPutKey).get(fiveMinute).getClosePrice();
-				premiumMap.put(fiveMinute, totalPremium);
+				//System.out.println(fiveMinute + "  " + closePrice + "  " + prevCallKey + "  " + curPutKey);
+				if (callDataMap.get(prevCallKey).containsKey(fiveMinute)) { //&& putDataMap.get(curPutKey).containsKey(fiveMinute)) {
+					double totalPremium = callDataMap.get(prevCallKey).get(fiveMinute).getClosePrice(); //- (closePrice - prevCallKey);//+ putDataMap.get(curPutKey).get(fiveMinute).getClosePrice();
+					premiumMap.put(fiveMinute, totalPremium);
+				}
 				//System.out.println(fiveMinute + "   " + totalPremium);
 			}
+			}
+			dayDataMap.put(currentDateString, new DayData(minuteDataMap, premiumMap, callDataMap, null));//putDataMap));
 			
-			dayDataMap.put(currentDateString, new DayData(minuteDataMap, premiumMap));
-			Util.serializeHashMap(dayDataMap, "config/MSFT.txt");
+			if (writeCache) {
+				//Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
+			} else {
+				System.out.println(premiumMap);
+			}
 		}
 		
 	}
@@ -189,17 +209,17 @@ public class Downloader {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = retry(baseUrl);
-			System.out.println(response.getStatusLine());
+			//System.out.println(response.getStatusLine());
 			responseStatusCode = response.getStatusLine().getStatusCode();
 			if (responseStatusCode == 404) {
-				System.out.println("No data for ");
-				LoggerUtil.getLogger().info("No data for ");
+				System.out.println("404 No data ");
+				LoggerUtil.getLogger().info("404 No data ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
 				break;
 			}
 			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(10000);
+				Thread.sleep(30000);
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -209,7 +229,7 @@ public class Downloader {
 		        Calendar calendar = Calendar.getInstance();
 				while ((line = bufferedReader.readLine()) != null) {
 					//if (line.contains("56.67")) {
-						System.out.println(line);
+						//System.out.println(line);
 					
 						JSONParser parser = new JSONParser(); 
 						JSONObject json = (JSONObject) parser.parse(line);
@@ -232,6 +252,7 @@ public class Downloader {
 								mData.setOpenPrice(getFromJson(resultEntry, "o"));
 								mData.setHighPrice(getFromJson(resultEntry, "h"));
 								mData.setLowPrice(getFromJson(resultEntry, "l"));
+								mData.setVolume(getFromJson(resultEntry, "v"));
 								minuteDataMap.put(currentTime, mData);
 							}	
 							//long lastUpdatedTime = (Long) resultEntryDay.getOrDefault("last_updated", 0L);

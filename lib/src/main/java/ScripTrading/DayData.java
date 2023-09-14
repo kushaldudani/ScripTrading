@@ -12,12 +12,25 @@ public class DayData implements Serializable {
 	
 	private Map<String, MinuteData> minuteDataMap;
 	private Map<String, Double> premiumMap;
+	Map<Double, Map<String, MinuteData>> callDataMap;
+	Map<Double, Map<String, MinuteData>> putDataMap;
 	
 	
-	public DayData(Map<String, MinuteData> minuteDataMap, Map<String, Double> premiumMap) {
+	public DayData(Map<String, MinuteData> minuteDataMap, Map<String, Double> premiumMap, Map<Double, Map<String, MinuteData>> callDataMap,
+			Map<Double, Map<String, MinuteData>> putDataMap) {
 		super();
 		this.minuteDataMap = minuteDataMap;
 		this.premiumMap = premiumMap;
+		this.callDataMap = callDataMap;
+		this.putDataMap = putDataMap;
+	}
+
+	public Map<Double, Map<String, MinuteData>> getCallDataMap() {
+		return callDataMap;
+	}
+
+	public Map<Double, Map<String, MinuteData>> getPutDataMap() {
+		return putDataMap;
 	}
 
 	public Map<String, MinuteData> getMinuteDataMap() {

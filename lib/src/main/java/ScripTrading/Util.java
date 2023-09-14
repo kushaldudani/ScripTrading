@@ -219,15 +219,45 @@ public class Util {
 		expiryDates.add("2023-06-16");
 		expiryDates.add("2023-06-23");
 		expiryDates.add("2023-06-30");
+		expiryDates.add("2023-07-07");
+		expiryDates.add("2023-07-14");
+		expiryDates.add("2023-07-21");
+		expiryDates.add("2023-07-28");
+		expiryDates.add("2023-08-04");
+		expiryDates.add("2023-08-11");
+		expiryDates.add("2023-08-18");
+		expiryDates.add("2023-08-25");
+		expiryDates.add("2023-09-01");
+		expiryDates.add("2023-09-08");
+		expiryDates.add("2023-09-15");
+		expiryDates.add("2023-09-22");
+		expiryDates.add("2023-09-29");
 		
 		
 		return expiryDates;
 	}
+	
+	public static Double doesGraphSegmentsHaveDorDrInLastNMins(List<GraphSegment> graphArray, int NMinsAgo, String time) {
+		String timeNMinsAgo = timeNMinsAgo(time, NMinsAgo);
+		int segmentsSize = graphArray.size();
+		int cntr = 0;
+		while (cntr < segmentsSize) {
+			GraphSegment graphSegment = graphArray.get(cntr);
+			if (graphSegment.startTime.compareTo(timeNMinsAgo) >= 0) {
+				if ((graphSegment.identifier.equals("d") || graphSegment.identifier.equals("dr"))) {
+					return new Double(graphSegment.startPrice);
+				}
+			}
+			cntr++;
+		}
+		
+		return null;
+	}
 
 	public static void calculateGraphSegments(List<GraphSegment> graphArray, double fiveMinVol,
 			double fiveMinOpen, double fiveMinClose, double fiveMinHigh, double fiveMinLow, String time, double ninetyPercentileBarChange) {
-		time = timeNMinsAgo(time, 5);
-    	if (fiveMinClose > fiveMinOpen) {
+		//time = timeNMinsAgo(time, 5);
+    	if (fiveMinClose >= fiveMinOpen) {
           if (graphArray.size() == 0) {
               graphArray.add(new GraphSegment("c", "0", time, fiveMinOpen, fiveMinClose, fiveMinClose, 0));
               
