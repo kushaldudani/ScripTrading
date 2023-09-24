@@ -28,10 +28,11 @@ public class MainMethod {
 				try {
 					CountDownLatch latch = new CountDownLatch(1);
 					Map<String, MinuteData> minuteDataMap = Collections.synchronizedMap(new LinkedHashMap<>());
-					Map<String, Double> premiumMap = Collections.synchronizedMap(new LinkedHashMap<>());
-					JavaUsageSample jus = new JavaUsageSample(latch, minuteDataMap, premiumMap);
+					//Map<String, MinuteData> callMap = Collections.synchronizedMap(new LinkedHashMap<>());
+					//Map<String, TradeData> tradeDataMap = Collections.synchronizedMap(new LinkedHashMap<>());
+					JavaUsageSample jus = new JavaUsageSample(latch, minuteDataMap);
 					WORKER_THREAD_POOL.submit(jus);
-					OrderTracker orderTracker = new OrderTracker(minuteDataMap, premiumMap);
+					OrderTracker orderTracker = new OrderTracker(minuteDataMap);
 					WORKER_THREAD_POOL.submit(orderTracker);
 					while (latch.getCount() > 0) {
 						try {

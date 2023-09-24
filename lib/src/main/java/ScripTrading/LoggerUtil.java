@@ -11,7 +11,7 @@ import java.util.logging.SimpleFormatter;
 
 public class LoggerUtil {
 	
-private static Logger logger;
+	private static Logger logger;
 	
 	public static synchronized Logger getLogger(){
 		if(logger == null){
@@ -19,7 +19,7 @@ private static Logger logger;
 			Handler fileHandler = null;
 			SimpleFormatter simpleFormatter = null;
 			try{
-				fileHandler = new FileHandler("/Users/kushd/msft/"+getLocation());
+				fileHandler = new FileHandler("/Users/kushd/qqq/"+getLocation());
 				simpleFormatter = new SimpleFormatter();
 				logger.addHandler(fileHandler);
 				fileHandler.setFormatter(simpleFormatter);

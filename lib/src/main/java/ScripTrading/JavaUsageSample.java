@@ -28,12 +28,10 @@ public class JavaUsageSample implements Runnable {
 	
 	private CountDownLatch latch;
 	private Map<String, MinuteData> minuteDataMap;
-	private Map<String, Double> premiumMap;
 	
-	public JavaUsageSample(CountDownLatch latch, Map<String, MinuteData> minuteDataMap, Map<String, Double> premiumMap) {
+	public JavaUsageSample(CountDownLatch latch, Map<String, MinuteData> minuteDataMap) {
 		this.latch = latch;
 		this.minuteDataMap = minuteDataMap;
-		this.premiumMap = premiumMap;
 	}
 
 	@Override
@@ -92,15 +90,20 @@ public class JavaUsageSample implements Runnable {
         //LoggerUtil.getLogger().info("Websocket sample:");
         //Map<String, MinuteData> minuteDataMap = Collections.synnew LinkedHashMap<>();
         // List<GraphSegment> graphSegments = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
         Calendar calendar = Calendar.getInstance();
-        websocketSample(polygonKey, minuteDataMap, calendar, simpleDateFormat, premiumMap);
+        
+        String currentDateString = sdf.format(calendar.getTime());
+        
+        websocketSample(polygonKey, minuteDataMap, calendar, simpleDateFormat, currentDateString);
         
         latch.countDown();
     }
 
     public static void websocketSample(String polygonKey, Map<String, MinuteData> minuteDataMap, Calendar calendar, SimpleDateFormat sdf, 
-    		Map<String, Double> premiumMap) {
+    		String currentDateString) {
         PolygonWebSocketClient client = new PolygonWebSocketClient(
                 polygonKey,
                 PolygonWebSocketCluster.Stocks,
@@ -132,7 +135,12 @@ public class JavaUsageSample implements Runnable {
                     			fiveMData.setClosePrice(mData.getClosePrice());
                     			minuteDataMap.put(time, fiveMData);
                     			
-                    			new Thread(new OptionDownloader(premiumMap, time, (int) (mData.getClosePrice() * 1000))).start();
+                    			/*if (tradeDataMap.containsKey(currentDateString)) {
+                    				TradeData tradeData = tradeDataMap.get(currentDateString);
+                    				if (tradeData.getStrike() > 0) {
+                    					new Thread(new OptionDownloader(callMap, time, (int) (tradeData.getStrike() * 1000))).start();
+                    				}
+                    			}*/
                     		}
                     		
                     		/*List<MinuteData> fiveMinuteList = new ArrayList<>();
@@ -185,7 +193,7 @@ public class JavaUsageSample implements Runnable {
         	client.connectBlocking();
 
         	List<PolygonWebSocketSubscription> subs = Collections.singletonList(
-                new PolygonWebSocketSubscription(PolygonWebSocketChannel.Stocks.AggPerMinute.INSTANCE, "MSFT"));
+                new PolygonWebSocketSubscription(PolygonWebSocketChannel.Stocks.AggPerMinute.INSTANCE, "QQQ"));
         	client.subscribeBlocking(subs);
 
         	long startWait = System.currentTimeMillis();

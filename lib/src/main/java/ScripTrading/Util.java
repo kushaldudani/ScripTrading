@@ -29,7 +29,7 @@ public class Util {
     	return stringH + ":" + stringM;
     }
 	
-	public static int diffTime(String time1, String time2) {
+	private static int diffTime(String time1, String time2) {
     	int time1H = (time1.charAt(0) == '0') ? Integer.parseInt(time1.substring(1, 2)) : Integer.parseInt(time1.substring(0, 2));
     	int time2H = (time2.charAt(0) == '0') ? Integer.parseInt(time2.substring(1, 2)) : Integer.parseInt(time2.substring(0, 2));
     	
@@ -37,6 +37,37 @@ public class Util {
     	int time2M = Integer.parseInt(time2.substring(3, 5));
     	
     	return (time2H - time1H) * 60 +  (time2M - time1M);
+    }
+	
+	public static String findNearestFiveMinute(String time) {
+    	int timeH = (time.charAt(0) == '0') ? Integer.parseInt(time.substring(1, 2)) : Integer.parseInt(time.substring(0, 2));
+    	
+    	int timeM = Integer.parseInt(time.substring(3, 5));
+    	
+    	int minutes = timeH * 60 + timeM;
+    	
+    	int nearestFiveMinute = minutes - (minutes % 5);
+    	
+    	int nearestFiveMinuteH = nearestFiveMinute / 60;
+    	int nearestFiveMinuteM = nearestFiveMinute - (nearestFiveMinuteH * 60);
+    	
+    	String stringH = (nearestFiveMinuteH < 10) ? "0" + nearestFiveMinuteH : "" + nearestFiveMinuteH;
+    	String stringM = (nearestFiveMinuteM < 10) ? "0" + nearestFiveMinuteM : "" + nearestFiveMinuteM;
+    	
+    	return stringH + ":" + stringM;
+    }
+	
+	public static int diffTimeWithSec(String time1, String time2) {
+    	int time1H = (time1.charAt(0) == '0') ? Integer.parseInt(time1.substring(1, 2)) : Integer.parseInt(time1.substring(0, 2));
+    	int time2H = (time2.charAt(0) == '0') ? Integer.parseInt(time2.substring(1, 2)) : Integer.parseInt(time2.substring(0, 2));
+    	
+    	int time1M = Integer.parseInt(time1.substring(3, 5));
+    	int time2M = Integer.parseInt(time2.substring(3, 5));
+    	
+    	int time1S = Integer.parseInt(time1.substring(6, 8));
+    	int time2S = Integer.parseInt(time2.substring(6, 8));
+    	
+    	return (time2H - time1H) * 60 * 60 +  (time2M - time1M) * 60 + (time2S - time1S);
     }
 	
 	public static Map<String, DayData> deserializeHashMap(String filename) {
@@ -237,21 +268,39 @@ public class Util {
 		return expiryDates;
 	}
 	
-	public static Double doesGraphSegmentsHaveDorDrInLastNMins(List<GraphSegment> graphArray, int NMinsAgo, String time) {
-		String timeNMinsAgo = timeNMinsAgo(time, NMinsAgo);
+	public static boolean goodTimeToLongBasedOffGraphSegmentsDorDr(List<GraphSegment> graphArray, double closeAtTime, double ninetyPercentileBarChange) {
 		int segmentsSize = graphArray.size();
-		int cntr = 0;
-		while (cntr < segmentsSize) {
+		int cntr = segmentsSize - 1;
+		if (graphArray.get(cntr).identifier.equals("d")) {
+			return false;
+		}
+		double biggestDPcnt = 0;
+		double dSegment = 0;
+		double dSegmentDenominator = 0;
+		while (cntr >= 0) {
 			GraphSegment graphSegment = graphArray.get(cntr);
-			if (graphSegment.startTime.compareTo(timeNMinsAgo) >= 0) {
-				if ((graphSegment.identifier.equals("d") || graphSegment.identifier.equals("dr"))) {
-					return new Double(graphSegment.startPrice);
+			if ((graphSegment.identifier.equals("d") || graphSegment.identifier.equals("dr"))) {
+				dSegment = (graphSegment.startPrice - graphSegment.endPrice);
+				dSegmentDenominator = graphSegment.startPrice;
+				//if (dSegment != 0 && dSegmentDenominator != 0) {
+					if (((dSegment / dSegmentDenominator) * 100) > biggestDPcnt) {
+						biggestDPcnt = ((dSegment / dSegmentDenominator) * 100);
+					}
+				//}
+				
+				if (closeAtTime > graphSegment.startPrice) {
+					cntr--;
+					continue;
 				}
+				
+				double cutOffPrice = graphSegment.endPrice + (0.4 * dSegment);
+				return (closeAtTime <= cutOffPrice) ? true : false;
 			}
-			cntr++;
+			
+			cntr--;
 		}
 		
-		return null;
+		return (biggestDPcnt < (4 * ninetyPercentileBarChange)) ? true : false;
 	}
 
 	public static void calculateGraphSegments(List<GraphSegment> graphArray, double fiveMinVol,
@@ -272,12 +321,13 @@ public class Util {
                   
               } else {
                   //prevGS.startPrice = Math.min(fiveMinClose, prevGS.startPrice);
-            	  prevGS.priceWithTime.put(time, fiveMinClose);
-            	  if(prevGS.priceWithTime.size() >= 3) {
-            		  String time10MinsAgo = timeNMinsAgo(time, 10);
-            		  double fiveMinClose10MinsAgo = prevGS.priceWithTime.remove(time10MinsAgo);
-            		  prevGS.endPrice = fiveMinClose10MinsAgo;
-            		  prevGS.endTime = time10MinsAgo;
+            	  //prevGS.priceWithTime.put(time, fiveMinClose);
+            	  //if(prevGS.priceWithTime.size() >= 6) {
+            	  if (Math.abs(((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100) < (ninetyPercentileBarChange / 10)) {
+            		  //String time10MinsAgo = timeNMinsAgo(time, 25);
+            		  //double fiveMinClose10MinsAgo = prevGS.priceWithTime.remove(time10MinsAgo);
+            		  prevGS.endPrice = fiveMinClose; //fiveMinClose10MinsAgo;
+            		  prevGS.endTime = time ;//time10MinsAgo;
             	  }
                   prevGS.currentPrice = fiveMinClose;
                   prevGS.barCount = prevGS.barCount + 1;
@@ -302,14 +352,21 @@ public class Util {
           }
           else if (prevGS.identifier.equals("ur")) {
               if (((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100 > ninetyPercentileBarChange) {
-            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
-            	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
-            	  graphArray.add(new GraphSegment("u", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
+            	  prevGS.identifier = "u";
+            	  if (fiveMinClose > prevGS.endPrice) {
+                      prevGS.endTime = time;
+                      prevGS.endPrice = fiveMinClose;
+                  }
+                  prevGS.currentPrice = fiveMinClose;
+                  prevGS.barCount = prevGS.barCount + 1;
+            	  //int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
+            	  //prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
+            	  //graphArray.add(new GraphSegment("u", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime, time) >= 30) {
-            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
-            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
+            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
               } else {
                   prevGS.currentPrice = fiveMinClose;
@@ -320,9 +377,9 @@ public class Util {
           else if (prevGS.identifier.equals("d")) {
               if (((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100 > Math.abs(((prevGS.endPrice - prevGS.startPrice) / prevGS.startPrice) * 100) * 0.3) {
                   prevGS.currentPrice = fiveMinClose;
-                  prevGS.pullbackPrice = fiveMinClose;
+                  prevGS.pullbackPrice.add(fiveMinClose);
                   prevGS.identifier = "dr";
-                  prevGS.pullbackTime = time;
+                  prevGS.pullbackTime.add(time);
                   prevGS.barCount = prevGS.barCount + 1;
                   
               } else if (diffTime(prevGS.endTime, time) >= 30) {
@@ -343,15 +400,15 @@ public class Util {
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
                   graphArray.add(new GraphSegment("u", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime, time) >= 30) {
-            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
-            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
+            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
               } else {
-                  if (fiveMinClose > prevGS.pullbackPrice) {
-                      prevGS.pullbackTime = time;
-                      prevGS.pullbackPrice = fiveMinClose;
+                  if (fiveMinClose > prevGS.pullbackPrice.peekLast()) {
+                      prevGS.pullbackTime.removeLast(); prevGS.pullbackTime.add(time);
+                      prevGS.pullbackPrice.removeLast(); prevGS.pullbackPrice.add(fiveMinClose);
                   }
                   prevGS.currentPrice = fiveMinClose;
                   prevGS.barCount = prevGS.barCount + 1;
@@ -373,12 +430,13 @@ public class Util {
                   
               } else {
             	//prevGS.startPrice = Math.min(fiveMinClose, prevGS.startPrice);
-            	  prevGS.priceWithTime.put(time, fiveMinClose);
-            	  if(prevGS.priceWithTime.size() >= 3) {
-            		  String time10MinsAgo = timeNMinsAgo(time, 10);
-            		  double fiveMinClose10MinsAgo = prevGS.priceWithTime.remove(time10MinsAgo);
-            		  prevGS.endPrice = fiveMinClose10MinsAgo;
-            		  prevGS.endTime = time10MinsAgo;
+            	  //prevGS.priceWithTime.put(time, fiveMinClose);
+            	  //if(prevGS.priceWithTime.size() >= 6) {
+            	  if (Math.abs(((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100) < (ninetyPercentileBarChange / 10)) {
+            		  //String time10MinsAgo = timeNMinsAgo(time, 25);
+            		  //double fiveMinClose10MinsAgo = prevGS.priceWithTime.remove(time10MinsAgo);
+            		  prevGS.endPrice = fiveMinClose; //fiveMinClose10MinsAgo;
+            		  prevGS.endTime = time; //time10MinsAgo;
             	  }
                   prevGS.currentPrice = fiveMinClose;
                   prevGS.barCount = prevGS.barCount + 1;
@@ -403,14 +461,21 @@ public class Util {
           }
           else if (prevGS.identifier.equals("dr")) {
               if (((prevGS.endPrice - fiveMinClose) / prevGS.endPrice) * 100 > ninetyPercentileBarChange) {
-            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
-            	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
-            	  graphArray.add(new GraphSegment("d", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
+            	  prevGS.identifier = "d";
+            	  if (fiveMinClose < prevGS.endPrice) {
+                      prevGS.endTime = time;
+                      prevGS.endPrice = fiveMinClose;
+                  }
+                  prevGS.currentPrice = fiveMinClose;
+            	  prevGS.barCount = prevGS.barCount + 1;
+            	  //int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
+            	  //prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
+            	  //graphArray.add(new GraphSegment("d", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime, time) >= 30) {
-            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
-            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
+            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
               } else {
                   prevGS.currentPrice = fiveMinClose;
@@ -421,9 +486,9 @@ public class Util {
           else if (prevGS.identifier.equals("u")) {
               if (((prevGS.endPrice - fiveMinClose) / prevGS.endPrice) * 100 > Math.abs(((prevGS.endPrice - prevGS.startPrice) / prevGS.startPrice) * 100) * 0.3) {
                   prevGS.currentPrice = fiveMinClose;
-                  prevGS.pullbackPrice = fiveMinClose;
+                  prevGS.pullbackPrice.add(fiveMinClose);
                   prevGS.identifier = "ur";
-                  prevGS.pullbackTime = time;
+                  prevGS.pullbackTime.add(time);
                   prevGS.barCount = prevGS.barCount + 1;
                   
               } else if (diffTime(prevGS.endTime, time) >= 30) {
@@ -444,15 +509,15 @@ public class Util {
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
                   graphArray.add(new GraphSegment("d", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime, time) >= 30) {
-            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime, time) / 5;
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+            	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
-            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
+            	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
               } else {
-                  if (fiveMinClose < prevGS.pullbackPrice) {
-                      prevGS.pullbackTime = time;
-                      prevGS.pullbackPrice = fiveMinClose;
+                  if (fiveMinClose < prevGS.pullbackPrice.peekLast()) {
+                      prevGS.pullbackTime.removeLast(); prevGS.pullbackTime.add(time);
+                      prevGS.pullbackPrice.removeLast(); prevGS.pullbackPrice.add(fiveMinClose);
                   }
                   prevGS.currentPrice = fiveMinClose;
                   prevGS.barCount = prevGS.barCount + 1;

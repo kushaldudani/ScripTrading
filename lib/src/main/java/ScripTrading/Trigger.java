@@ -1,5 +1,7 @@
 package ScripTrading;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.json.simple.JSONArray;
@@ -8,51 +10,71 @@ import org.json.simple.JSONObject;
 public class Trigger {
 	
 	public static void main(String[] args) {
-		String json = getOrderJson("MSFT", "07:30", 1, "BUY");
+		//String json = getOrderJson("MSFT", "07:30", 1, "BUY");
 		
-		System.out.println(json);
+		//System.out.println(json);
 	}
 	
-	private static double OPTION_PREMIUM_RISE_PERCENT = 10;
+	//private static double OPTION_PREMIUM_RISE_PERCENT = 10;
 	
-	private static double TRANSACTION_SIZE = 1000;
+	//private static double TRANSACTION_SIZE = 400; // Dollar Amount
 	
-	private static String ORDER_URL = "";
+	private static String ORDER_URL = "https://localhost:5000/v1/api/iserver/account/U12784344/orders";
 	
-	private static String SYMBOL = "MSFT";
+	private static String MODIFY_ORDER_URL = "https://localhost:5000/v1/api/iserver/account/U12784344/order/";
+	
+	private static String SYMBOL = "QQQ";
 	
 	
-	public Trade tradeEnter(Map<String, MinuteData> minuteDataMap, Map<String, Double> premiumMap, String time) {
+	public void stockEnter(Map<String, MinuteData> minuteDataMap, String time, TradeData tradedata, String currentDate) {
+		double strikePrice = tradedata.getStrike();
+		double cutOffPrice = strikePrice + (0.002 * strikePrice);
+		double closeAttime = minuteDataMap.get(time).getClosePrice();
 		
-		double premiumAtTime = premiumMap.get(time);
-		Double premiumBefore = premiumMap.get(Util.timeNMinsAgo(time, 5));
-		double closeAtPremium = minuteDataMap.get(time).getClosePrice();
-		
-		if (premiumBefore == null) {
-			return null;
-		}
-		
-		if ((((premiumAtTime - premiumBefore) / premiumBefore) * 100) >= OPTION_PREMIUM_RISE_PERCENT) {
-			int qty = (int) (TRANSACTION_SIZE / closeAtPremium);
-			return new OrderPlacer().enter(ORDER_URL, getOrderJson(SYMBOL, time, qty, "BUY"), time, closeAtPremium, qty);
+		if (closeAttime >= cutOffPrice && time.compareTo("11:30") < 0) {
+			int qty = tradedata.getQty();
+			
+			MetadataUtil.getInstance().write("/Users/kushd/qqq/positionenter.txt", currentDate, "inprogress", "na");
+			new Thread(new OrderPlacer(ORDER_URL, getPositionEnterJson(time, qty, "BUY"), currentDate, "/Users/kushd/qqq/positionenter.txt", true, "error")).start();
 		} else {
-			LoggerUtil.getLogger().info("Trade Enter tried at " + time + " Price " + closeAtPremium + " Premium " + premiumAtTime);
+			LoggerUtil.getLogger().info("Stock Enter tried at " + time + " Price " + closeAttime);
 		}
 		
-		return null;
 	}
 	
-	private static String getOrderJson(String symbol, String time, int qty, String side) {
+	public void optionExit(Map<String, MinuteData> minuteDataMap, String time, TradeData tradedata, String currentDate, long optionContract) {
+		double strikePrice = tradedata.getStrike();
+		double cutOffPrice = strikePrice + (0.002 * strikePrice);
+		double closeAttime = minuteDataMap.get(time).getClosePrice();
+		double eodCutOffPrice = strikePrice - (0.002 * strikePrice);
+		
+		if (closeAttime >= cutOffPrice && time.compareTo("11:30") < 0) {
+			int qty = tradedata.getQty();
+			
+			MetadataUtil.getInstance().write("/Users/kushd/qqq/optionexit.txt", currentDate, "inprogress", "na");
+			new Thread(new OrderPlacer(ORDER_URL, getOptionExitJson(time, qty,  optionContract), currentDate, "/Users/kushd/qqq/optionexit.txt", true, "error")).start();
+		} else if (closeAttime > eodCutOffPrice && time.compareTo("12:50") >= 0) {
+			int qty = tradedata.getQty();
+			
+			MetadataUtil.getInstance().write("/Users/kushd/qqq/optionexit.txt", currentDate, "inprogress", "na");
+			new Thread(new OrderPlacer(ORDER_URL, getOptionExitJson(time, qty,  optionContract), currentDate, "/Users/kushd/qqq/optionexit.txt", true, "error")).start();
+		} else {
+			LoggerUtil.getLogger().info("Option Exit tried at " + time + " Price " + closeAttime);
+		}
+		
+	}
+	
+	private static String getOptionExitJson(String time, int qty, long contractid) {
 		
 		JSONArray orderArray = new JSONArray();
 		
 		JSONObject orderObject = new JSONObject();
-		orderObject.put("conid", 0);
-		orderObject.put("secType", "");
-		orderObject.put("cOID", symbol+time);
+		orderObject.put("conid", contractid);
+		orderObject.put("secType", "OPT");
+		orderObject.put("cOID", contractid+SYMBOL+time);
         orderObject.put("orderType", "MKT");
-        orderObject.put("side", side);
-        orderObject.put("ticker", symbol);
+        orderObject.put("side", "BUY");
+        orderObject.put("ticker", SYMBOL);
         orderObject.put("tif", "DAY");
         orderObject.put("quantity", qty);
         
@@ -64,37 +86,124 @@ public class Trigger {
         return topObject.toJSONString();
 	}
 	
-	public boolean tradeExit(Map<String, MinuteData> minuteDataMap, Map<String, Double> premiumMap, String time, Trade trade) {
-		boolean momentumDisappeared = false;
-		double premiumAtTime = premiumMap.get(time);
-		Double premiumBefore1 = premiumMap.get(Util.timeNMinsAgo(time, 5));
-		Double premiumBefore2 = premiumMap.get(Util.timeNMinsAgo(time, 10));
-		Double premiumBefore3 = premiumMap.get(Util.timeNMinsAgo(time, 15));
-		double closeAtPremium = minuteDataMap.get(time).getClosePrice();
+	private static String getPositionEnterJson(String time, int qty, String side) {
 		
-		if (premiumBefore1 == null || premiumBefore2 == null || premiumBefore3 == null) {
-			return false;
+		JSONArray orderArray = new JSONArray();
+		
+		JSONObject orderObject = new JSONObject();
+		orderObject.put("conid", 320227571);
+		orderObject.put("secType", "STK");
+		orderObject.put("cOID", SYMBOL+time);
+        orderObject.put("orderType", "MKT");
+        orderObject.put("side", side);
+        orderObject.put("ticker", SYMBOL);
+        orderObject.put("tif", "DAY");
+        orderObject.put("quantity", qty);
+        
+        orderArray.add(orderObject);
+        
+        JSONObject topObject = new JSONObject();
+        topObject.put("orders", orderArray);
+        
+        return topObject.toJSONString();
+	}
+	
+	private static String getPositionExitJson(String time, int qty, String orderType, double limitPrice) {
+		
+		JSONArray orderArray = new JSONArray();
+		
+		JSONObject orderObject = new JSONObject();
+		orderObject.put("conid", 320227571);
+		orderObject.put("secType", "STK");
+		orderObject.put("cOID", SYMBOL+time);
+        orderObject.put("orderType", orderType);
+        orderObject.put("side", "SELL");
+        orderObject.put("ticker", SYMBOL);
+        orderObject.put("tif", "DAY");
+        orderObject.put("quantity", qty);
+        if (orderType.equals("LMT")) {
+        	orderObject.put("price", limitPrice);
+        }
+        
+        orderArray.add(orderObject);
+        
+        JSONObject topObject = new JSONObject();
+        topObject.put("orders", orderArray);
+        
+        return topObject.toJSONString();
+	}
+	
+	private static String getPositionExitModifyJson(int qty, String orderType, double limitPrice) {
+		
+		JSONObject orderObject = new JSONObject();
+		orderObject.put("conid", 320227571);
+        orderObject.put("orderType", orderType);
+        orderObject.put("side", "SELL");
+        orderObject.put("ticker", SYMBOL);
+        orderObject.put("tif", "DAY");
+        orderObject.put("quantity", qty);
+        if (orderType.equals("LMT")) {
+        	orderObject.put("price", limitPrice);
+        }
+        
+        return orderObject.toJSONString();
+	}
+	
+	public void stockExit(Map<String, MinuteData> minuteDataMap, String triggerTime, TradeData tradedata, String currentDate,
+			double enterPrice, double optionexitPrice, String orderId, String executionInfo) {
+		double closeAttime = minuteDataMap.get(triggerTime).getClosePrice();
+		List<GraphSegment> graphSegments = new ArrayList<>();
+		double dayHigh = 0;
+		for (String time : minuteDataMap.keySet()) {
+			if (minuteDataMap.get(time).getClosePrice() > dayHigh) {
+				dayHigh = minuteDataMap.get(time).getClosePrice();
+			}
+			Util.calculateGraphSegments(graphSegments, minuteDataMap.get(time).getVolume(),
+					minuteDataMap.get(time).getOpenPrice(), minuteDataMap.get(time).getClosePrice(),
+					minuteDataMap.get(time).getHighPrice(), minuteDataMap.get(time).getLowPrice(),
+					time, 0.2);
 		}
 		
-		if (premiumAtTime < premiumBefore1 && premiumBefore1 < premiumBefore2 && premiumBefore2 < premiumBefore3) {
-			momentumDisappeared = true;
-		}
-		
-		if (momentumDisappeared) {
-			if (closeAtPremium > trade.getEnterPrice()) {
-				LoggerUtil.getLogger().info("Trade exit attempt " + time + " Price " + closeAtPremium);
-				return new OrderPlacer().exit(ORDER_URL, getOrderJson(SYMBOL, time, trade.getQty(), "SELL"));
+		double limitPrice = 0;
+		GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
+		if (!lastGS.identifier.equals("u") && !lastGS.identifier.equals("ur")) {
+			limitPrice = enterPrice + optionexitPrice;
+			if (lastGS.identifier.equals("d") || lastGS.identifier.equals("dr")) {
+				limitPrice = enterPrice;
+			}
+			if (triggerTime.compareTo("12:30") >= 0) {
+				limitPrice = enterPrice;
 			}
 		}
 		
-		int timeH = (time.charAt(0) == '0') ? Integer.parseInt(time.substring(1, 2)) : Integer.parseInt(time.substring(0, 2));
-		int timeM = (time.charAt(3) == '0') ? Integer.parseInt(time.substring(4, 5)) : Integer.parseInt(time.substring(3, 5));
-		if (timeH >= 12 && timeM >= 50) {
-			LoggerUtil.getLogger().info("Trade exit attempt " + time + " Price " + closeAtPremium);
-			return new OrderPlacer().exit(ORDER_URL, getOrderJson(SYMBOL, time, trade.getQty(), "SELL"));
+		if (triggerTime.compareTo("12:50") >= 0 || (((closeAttime - dayHigh) / dayHigh) * 100) < -0.8) {
+			int qty = tradedata.getQty();
+			
+			if (orderId.equals("")) {
+				MetadataUtil.getInstance().write("/Users/kushd/qqq/positionexit.txt", currentDate, "inprogress", "na");
+				new Thread(new OrderPlacer(ORDER_URL, getPositionExitJson(triggerTime, qty, "MKT", 0), currentDate, "/Users/kushd/qqq/positionexit.txt", false, "MKT")).start();
+			} else {
+				if (!executionInfo.equals("MKT")) {
+					new Thread(new OrderModifier(MODIFY_ORDER_URL+orderId, getPositionExitModifyJson(qty, "MKT", 0), currentDate, "/Users/kushd/qqq/positionexit.txt", "MKT")).start();
+				}
+			}
+		} else if (limitPrice > 0) {
+			int qty = tradedata.getQty();
+			
+			if (orderId.equals("")) {
+				MetadataUtil.getInstance().write("/Users/kushd/qqq/positionexit.txt", currentDate, "inprogress", "na");
+				new Thread(new OrderPlacer(ORDER_URL, getPositionExitJson(triggerTime, qty, "LMT", limitPrice), currentDate, "/Users/kushd/qqq/positionexit.txt", false, ""+limitPrice)).start();
+			} else {
+				if (!executionInfo.equals("MKT")) {
+					double prevLimitPrice = Double.parseDouble(executionInfo);
+					if (limitPrice != prevLimitPrice) {
+						new Thread(new OrderModifier(MODIFY_ORDER_URL+orderId, getPositionExitModifyJson(qty, "LMT", limitPrice), currentDate, "/Users/kushd/qqq/positionexit.txt", ""+limitPrice)).start();
+					}
+				}
+			}
+		} else {
+			LoggerUtil.getLogger().info("Stock Exit tried at " + triggerTime + " Limit Price " + limitPrice);
 		}
-		
-		return false;
 	}
 
 }

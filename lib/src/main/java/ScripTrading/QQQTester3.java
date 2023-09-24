@@ -22,8 +22,8 @@ public class QQQTester3 {
 		}
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date startDate = sdf.parse("2023-07-03");
-		Date endDate = sdf.parse("2023-07-04");
+		Date startDate = sdf.parse("2023-08-04");
+		Date endDate = sdf.parse("2023-08-05");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		//String nowDate = sdf.format(calendar.getTime());
@@ -58,12 +58,12 @@ public class QQQTester3 {
 			
 			if (currentDateString.compareTo("2022-12-01") >= 0) {
 				for (String time : dayData.getMinuteDataMap().keySet()) {
-					System.out.println(time);
-					if (time.equals("09:20")) {
-						for (GraphSegment graphSegment : graphSegments) {
-							System.out.println(graphSegment.toString());
-			    		}
-					}
+					//System.out.println(time);
+					//if (time.equals("09:20")) {
+					//	for (GraphSegment graphSegment : graphSegments) {
+					//		System.out.println(graphSegment.toString());
+			    	//	}
+					//}
 					
 					Util.calculateGraphSegments(graphSegments, dayData.getMinuteDataMap().get(time).getVolume(),
 							dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),

@@ -4,15 +4,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class QQQTester {
-	
-	// {"QQQ":[{"name":"INVESCO QQQ TRUST SERIES 1","chineseName":"&#x666F;&#x987A; QQQ&#x4FE1;&#x6258;&#x7CFB;&#x5217;1","assetClass":"STK","contracts":[{"conid":320227571,"exchange":"NASDAQ","isUS":true},{"conid":320227574,"exchange":"MEXI","isUS":false}]}]}
-	
-	// {"MSFT":[{"name":"MICROSOFT CORP","chineseName":"&#x5FAE;&#x8F6F;&#x516C;&#x53F8;","assetClass":"STK","contracts":[{"conid":272093,"exchange":"NASDAQ","isUS":true},{"conid":38708990,"exchange":"MEXI","isUS":false},{"conid":415569505,"exchange":"EBS","isUS":false}]},{"name":"LS 1X MSFT","chineseName":null,"assetClass":"STK","contracts":[{"conid":493546075,"exchange":"LSEETF","isUS":false}]},{"name":"MICROSOFT CORP-CDR","chineseName":"&#x5FAE;&#x8F6F;&#x516C;&#x53F8;","assetClass":"STK","contracts":[{"conid":518938052,"exchange":"AEQLIT","isUS":false}]}]}
+public class QQQTesterCopy {
 	
 	public static void main(String[] args) throws Exception {
 		Downloader downloader = new Downloader();
@@ -25,8 +20,8 @@ public class QQQTester {
 		}
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date startDate = sdf.parse("2022-12-01");
-		Date endDate = sdf.parse("2023-09-06");
+		Date startDate = sdf.parse("2023-07-17");
+		Date endDate = sdf.parse("2023-07-18");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		//String nowDate = sdf.format(calendar.getTime());
@@ -44,7 +39,6 @@ public class QQQTester {
 		double sumPremiumPercent = 0.0;
 		double sumbookedPositionProfit = 0.0;
 		double sumSecondProfitPcnt = 0.0;
-		List<String> stopLossHit = new ArrayList<>();
 		
 		Date currentDate = startDate;
 		while (currentDate.before(endDate)) {
@@ -143,21 +137,17 @@ public class QQQTester {
 				double buybackLossPcnt = ((callbuybackprice / optionSellingTimePrice) * 100);
 				List<GraphSegment> graphSegments = new ArrayList<>();
 				boolean detectedNonUpTrendViaGS = false;
-				double profitThreshold = buybackLossPcnt;
-				double dayHigh = 0;
 				for (String time : dayData.getMinuteDataMap().keySet()) {
-					if (dayData.getMinuteDataMap().get(time).getClosePrice() > dayHigh) {
-						dayHigh = dayData.getMinuteDataMap().get(time).getClosePrice() ;
-					}
 					Util.calculateGraphSegments(graphSegments, dayData.getMinuteDataMap().get(time).getVolume(),
 							dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),
 							dayData.getMinuteDataMap().get(time).getHighPrice(), dayData.getMinuteDataMap().get(time).getLowPrice(),
 							time, 0.2);
 					if (time.compareTo(touchcutOffPriceTime) > 0 && time.compareTo(closeTime) < 0) {
 						if (detectedNonUpTrendViaGS) {
-							if ( (((dayData.getMinuteDataMap().get(time).getHighPrice() - breachedPrice) / breachedPrice) * 100) >= profitThreshold) {
+							if ( (((dayData.getMinuteDataMap().get(time).getHighPrice() - breachedPrice) / breachedPrice) * 100) >= buybackLossPcnt) {
 								bookedPositionProfit = true;
-								sumbookedPositionProfit = sumbookedPositionProfit + profitThreshold;
+								sumbookedPositionProfit = sumbookedPositionProfit + buybackLossPcnt;
+								System.out.println("Booked profit at " + time + "  " + breachedPrice);
 								break;
 							}
 						}
@@ -165,27 +155,15 @@ public class QQQTester {
 						GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
 						if (!lastGS.identifier.equals("u") && !lastGS.identifier.equals("ur")) {
 							detectedNonUpTrendViaGS = true;
-							if (lastGS.identifier.equals("d") || lastGS.identifier.equals("dr")) {
-								profitThreshold = 0;
-							}
-							if (time.compareTo("12:30") >= 0) {
-								profitThreshold = 0;
-							}
 						}
 						
 						if (detectedNonUpTrendViaGS) {
-							if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - breachedPrice) / breachedPrice) * 100) >= profitThreshold) {
+							if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - breachedPrice) / breachedPrice) * 100) >= buybackLossPcnt) {
 								bookedPositionProfit = true;
 								sumbookedPositionProfit = sumbookedPositionProfit + (((dayData.getMinuteDataMap().get(time).getClosePrice() - breachedPrice) / breachedPrice) * 100);
+								System.out.println("Booked profit at " + time + "  " + breachedPrice + "  " + dayData.getMinuteDataMap().get(time).getClosePrice());
 								break;
 							}
-						}
-						
-						if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - dayHigh) / dayHigh) * 100) < -0.8) {
-							bookedPositionProfit = true;
-							sumbookedPositionProfit = sumbookedPositionProfit + (((dayData.getMinuteDataMap().get(time).getClosePrice() - dayHigh) / dayHigh) * 100);
-							stopLossHit.add(currentDateString);
-							break;
 						}
 					}
 				}
@@ -261,68 +239,8 @@ public class QQQTester {
 		System.out.println("Total Days " + totaldays);
 		
 		System.out.println("Profit from Premium selling " + sumPremiumPercent);
-		System.out.println("Booked Profit from position exit " + sumbookedPositionProfit + "  " + (problemCasesSubset - secondproblemCases) + " Stop loss hit exit " + stopLossHit);
+		System.out.println("Booked Profit from position exit " + sumbookedPositionProfit + "  " + (problemCasesSubset - secondproblemCases));
 		
 	}
 
 }
-
-/*
- 10.95078955929488
-31
-190
-14.162667012062036
-
-10.508080549562719
-30
-190
-13.940940330882295
-
-9.973905834704155
-33
-190
-13.940940330882295
-
-21.21608240369002
-62
-190
-26.306954893468447
-
-11.58226091079236
-7.797514136166318
-62
-30
-190
-26.306954893468447
-
-10.068045142272915
-5.936843312774853
-59
-40
-15
-190
-26.306954893468447
-
-9.535362152830304
-4.8782572069047685
-58
-39
-14
-190
-26.306954893468447
-
-Loss due to rollback option selling 19.169183645727973  58
-Loss due to position 4.8782572069047685  14
-Position taken for case 39
-Total Days 190
-Profit from Premium selling 26.306954893468447
-Booked Profit from position exit 10.712166949319883  25 Stop loss hit exit []
-
-Loss due to rollback option selling 19.169183645727973  58
-Loss due to position 0.6895957133388048  2
-Position taken for case 39
-Total Days 190
-Profit from Premium selling 26.306954893468447
-Booked Profit from position exit 7.528233818528309  37 Stop loss hit exit [2023-03-06, 2023-07-07]
-
- */

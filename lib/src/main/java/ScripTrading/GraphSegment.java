@@ -1,6 +1,7 @@
 package ScripTrading;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 public class GraphSegment {
@@ -11,11 +12,11 @@ public class GraphSegment {
 	public double startPrice;
 	public double endPrice;
 	public double currentPrice;
-	public String pullbackTime;
-	public double pullbackPrice;
+	public LinkedList<String> pullbackTime = new LinkedList<>();
+	public LinkedList<Double> pullbackPrice = new LinkedList<>();
 	
 	public int barCount;
-	public Map<String, Double> priceWithTime = new LinkedHashMap<>();
+	//public Map<String, Double> priceWithTime = new LinkedHashMap<>();
     
     
     
