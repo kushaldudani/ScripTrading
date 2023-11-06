@@ -91,6 +91,7 @@ public class QQQPutTester {
 		//double sumbookedPositionProfit = 0.0;
 		//double sumSecondProfitPcnt = 0.0;
 		//List<String> stopLossHit = new ArrayList<>();
+		Map<String, Double> allCases = new LinkedHashMap<>();
 		//Map<String, Double> bokkedProfitMap = new LinkedHashMap<>();
 		LinkedList<Double> volatilityQueue = new LinkedList<>();
 		
@@ -334,6 +335,7 @@ public class QQQPutTester {
 					sumprofitPcnt = sumprofitPcnt + profitPcnt;
 				}
 				
+				allCases.put(currentDateString + "  " + optionSellingTime, strikePrice);
 				if (profitPcnt > 0.3) {	
 					System.out.println(currentDateString + "  " + totalOptionPriceAtStartTime + "  " + avgVolatility + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + optionSellingTime + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
 				}
@@ -344,6 +346,7 @@ public class QQQPutTester {
 			if (downloadedMoreData) {
 				Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
 			}
+			Util.serializeDoubleHashMap(allCases, "config/QQQPutCases.txt");
 			calendar.add(Calendar.DATE, 1);
 	        currentDate = calendar.getTime();
 		}
