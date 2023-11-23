@@ -6,6 +6,10 @@ public class TradeConfirmation {
 	
 	private boolean hasOrderFilled;
 	
+	private String tradeTime;
+	
+	private double strike;
+	
 	public TradeConfirmation() {
 	}
 
@@ -24,10 +28,26 @@ public class TradeConfirmation {
 	public void setHasOrderFilled(boolean hasOrderFilled) {
 		this.hasOrderFilled = hasOrderFilled;
 	}
+	
+	public String getTradeTime() {
+		return tradeTime;
+	}
 
+	public void setTradeTime(String tradeTime) {
+		this.tradeTime = tradeTime;
+	}
+
+	public double getStrike() {
+		return strike;
+	}
+
+	public void setStrike(double strike) {
+		this.strike = strike;
+	}
+	
 	@Override
 	public String toString() {
-		return date + "  " + hasOrderFilled;
+		return date + "  " + hasOrderFilled + "  " + tradeTime + "  " + strike;
 	}
 
 

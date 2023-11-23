@@ -7,6 +7,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class MetadataUtil {
 	
@@ -20,14 +22,14 @@ public class MetadataUtil {
         return singleInstance;
     }
 	
-	public synchronized void write(String path, String currentDate, String value, String orderId) {
+	public synchronized void write(String path, String currentDate, String value, String orderId, double strike, long contract) {
 		OutputStreamWriter out = null;
 		BufferedWriter bw = null;
 		try{
 			out = new OutputStreamWriter(new FileOutputStream(new 
 					File(path),false));
 			bw =  new BufferedWriter(out);
-			bw.write(currentDate + "  " + value + "  " + orderId);
+			bw.write(currentDate + "  " + value + "  " + orderId + "  " + strike + "  " + contract);
 			bw.write("\n");
 		} catch (Exception e) {
 			LoggerUtil.getLogger().info(e.getMessage());
@@ -39,15 +41,17 @@ public class MetadataUtil {
 		}		
 	}
 	
-	public synchronized void writeTradeData(String currentDate, double strike, int qty) {
+	public synchronized void writeStrikeEnterOrderMap(String path, String currentDate, Map<Double, String> strikeToEnterOrderMap) {
 		OutputStreamWriter out = null;
 		BufferedWriter bw = null;
 		try{
 			out = new OutputStreamWriter(new FileOutputStream(new 
-					File("/home/kushaldudani/qqq/metadata.txt"),false));
+					File(path),false));
 			bw =  new BufferedWriter(out);
-			bw.write(currentDate + "  " + strike + "  " + qty);
-			bw.write("\n");
+			for (Double strike : strikeToEnterOrderMap.keySet()) {
+				bw.write(currentDate + "  " + strike + "  " + strikeToEnterOrderMap.get(strike));
+				bw.write("\n");
+			}
 		} catch (Exception e) {
 			LoggerUtil.getLogger().info(e.getMessage());
 		} finally{
@@ -58,14 +62,14 @@ public class MetadataUtil {
 		}		
 	}
 	
-	public synchronized void writeTradeConfirmation(String currentDate, boolean hasOrderFilled) {
+	public synchronized void writeTradeConfirmation(String currentDate, boolean hasOrderFilled, String tradeTime, double strike, String path) {
 		OutputStreamWriter out = null;
 		BufferedWriter bw = null;
 		try{
 			out = new OutputStreamWriter(new FileOutputStream(new 
-					File("/home/kushaldudani/qqq/tradeconfirmation.txt"),false));
+					File(path),false));
 			bw =  new BufferedWriter(out);
-			bw.write(currentDate + "  " + hasOrderFilled);
+			bw.write(currentDate + "  " + hasOrderFilled + "  " + tradeTime + "  " + strike);
 			bw.write("\n");
 		} catch (Exception e) {
 			LoggerUtil.getLogger().info(e.getMessage());
@@ -124,20 +128,22 @@ public class MetadataUtil {
 		return avgVolatility;
 	}
 	
-	public synchronized TradeConfirmation readTradeConfirmation(String currentDate){
+	public synchronized TradeConfirmation readTradeConfirmation(String currentDate, String path){
 		InputStreamReader is = null;
 		BufferedReader br = null;
 		TradeConfirmation tc = new TradeConfirmation();
 		try {
 			is = new InputStreamReader(new FileInputStream(new 
-					File("/home/kushaldudani/qqq/tradeconfirmation.txt")));
+					File(path)));
 			br =  new BufferedReader(is);
 			String line; 
 			while ((line = br.readLine()) != null) {
 				String[] linsVals = line.split("  ");
-				if (linsVals.length == 2 && currentDate.equals(linsVals[0])) {
+				if (linsVals.length == 4 && currentDate.equals(linsVals[0])) {
 					tc.setDate(linsVals[0]);
 					tc.setHasOrderFilled(Boolean.parseBoolean(linsVals[1]));
+					tc.setTradeTime(linsVals[2]);
+					tc.setStrike(Double.parseDouble(linsVals[3]));
 				}
 			}
 		} catch (Exception e) {
@@ -153,23 +159,17 @@ public class MetadataUtil {
 		return tc;
 	}
 	
-	public synchronized TradeData readTradeData(String currentDate){
+	public synchronized TradeData readTradeData(String path){
 		InputStreamReader is = null;
 		BufferedReader br = null;
 		TradeData tradeData = new TradeData();
 		try {
 			is = new InputStreamReader(new FileInputStream(new 
-					File("/home/kushaldudani/qqq/metadata.txt")));
+					File(path)));
 			br =  new BufferedReader(is);
 			String line; 
 			while ((line = br.readLine()) != null) {
-				String[] linsVals = line.split("  ");
-				if (linsVals.length == 3 && currentDate.equals(linsVals[0])) {
-					tradeData.setDate(linsVals[0]);
-					tradeData.setStrike(Double.parseDouble(linsVals[1]));
-					tradeData.setQty(Integer.parseInt(linsVals[2]));
-					//tradeData.setHasOrderFilled(Boolean.parseBoolean(linsVals[3]));
-				}
+				tradeData.setQty(Integer.parseInt(line.trim()));
 			}
 		} catch (Exception e) {
 			LoggerUtil.getLogger().info(e.getMessage());
@@ -184,6 +184,34 @@ public class MetadataUtil {
 		return tradeData;
 	}
 	
+	public synchronized Map<Double, String> readStrikeEnterOrderMap(String currentDate, String path){
+		InputStreamReader is = null;
+		BufferedReader br = null;
+		Map<Double, String> strikeToEnterOrderMap = new LinkedHashMap<>();
+		try {
+			is = new InputStreamReader(new FileInputStream(new 
+					File(path)));
+			br =  new BufferedReader(is);
+			String line; 
+			while ((line = br.readLine()) != null) {
+				String[] linsVals = line.split("  ");
+				if (linsVals.length == 3 && currentDate.equals(linsVals[0])) {
+					strikeToEnterOrderMap.put(Double.parseDouble(linsVals[1]), linsVals[2]);
+				}
+			}
+		} catch (Exception e) {
+			LoggerUtil.getLogger().info(e.getMessage());
+			//System.exit(1);
+		}finally{
+			 try {
+				br.close();
+				is.close();
+				
+			} catch (Exception e) {}
+		}
+		return strikeToEnterOrderMap;
+	}
+	
 	public synchronized Trade readTrade(String currentDate, String path){
 		InputStreamReader is = null;
 		BufferedReader br = null;
@@ -195,9 +223,11 @@ public class MetadataUtil {
 			String line; 
 			while ((line = br.readLine()) != null) {
 				String[] linsVals = line.split("  ");
-				if (linsVals.length == 3 && currentDate.equals(linsVals[0])) {
+				if (linsVals.length == 5 && currentDate.equals(linsVals[0])) {
 					trade.setExecutionInfo(linsVals[1]);
 					trade.setOrderid(linsVals[2]);
+					trade.setStrike(Double.parseDouble(linsVals[3]));
+					trade.setContract(Long.parseLong(linsVals[4]));
 				}
 			}
 		} catch (Exception e) {

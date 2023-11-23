@@ -22,6 +22,10 @@ Jul 04, 2023 5:41:22 PM ScripTrading.WebsocketCopy main
 INFO: GraphSegment [identifier=u, startTime=09:35, endTime=09:55, startPrice=277.2083, endPrice=280.0, currentPrice=280.0, pullbackTime=null, pullbackPrice=0.0, barCount=4]
     */
 
+	
+	
+	
+	
 }
 
 

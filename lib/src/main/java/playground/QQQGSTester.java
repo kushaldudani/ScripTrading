@@ -27,8 +27,8 @@ public class QQQGSTester {
 		}
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date startDate = sdf.parse("2023-10-02");
-		Date endDate = sdf.parse("2023-10-03");
+		Date startDate = sdf.parse("2023-02-08");
+		Date endDate = sdf.parse("2023-02-09");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		//String nowDate = sdf.format(calendar.getTime());

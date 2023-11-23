@@ -1,5 +1,9 @@
 package playground;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -12,6 +16,8 @@ import java.util.Map;
 
 import ScripTrading.DayData;
 import ScripTrading.GraphSegment;
+import ScripTrading.IGraphSegment;
+import ScripTrading.LoggerUtil;
 import ScripTrading.MinuteData;
 import ScripTrading.Util;
 
@@ -27,7 +33,7 @@ public class QQQCallTester {
 			int intPriceCntr = (int) (strikePrice * 1000);
 			Map<String, MinuteData> mMap = downloader.downloadStockPrice("https://api.polygon.io/v2/aggs/ticker/O:QQQ"+expiryString+"C00"+intPriceCntr+"/range/5/minute/"+currentDateString+"/"+currentDateString+"?adjusted=true&sort=asc&apiKey=6xGq1Yv1LmfdH4fyoThIJphP7J3pdmRS");
 			dayData.getCallDataMap().put(strikePrice, mMap);
-			return true;
+			downloadedMoreData = true;
 		}
 		
 		if (!dayData.getPutDataMap().containsKey(strikePrice)) {
@@ -39,7 +45,7 @@ public class QQQCallTester {
 				dayData.setPutDataMap(putMap);
 			}
 			dayData.getPutDataMap().put(strikePrice, mMap);
-			return true;
+			downloadedMoreData = true;
 		}
 		
 		return downloadedMoreData;
@@ -59,6 +65,51 @@ public class QQQCallTester {
 		return avgVol;
 	}
 	
+	private static double getTargetedStrike(DayData dayData, String time) {
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
+		double percentHigherFactor = (time.compareTo("08:45") <= 0) ? 0.009 : 0.009;
+		double priceLevelToPlaceOrder = (((closeAtTime - openAtTime) / openAtTime) * 100 < -0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
+		double targetedStrikePrice = ((int) (priceLevelToPlaceOrder + percentHigherFactor * priceLevelToPlaceOrder));
+		
+		return targetedStrikePrice;
+	}
+	
+	private static StrikeWithPrice getStrikeWithPrice(DayData dayData, String time, Downloader downloader, String currentDateString, boolean downloadedMoreData,
+			double prevTargetedStrikePrice, List<IGraphSegment> interpretedGSs) {
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		double targetedStrikePrice = getTargetedStrike(dayData, time);
+		
+		/*int segmentsSize = interpretedGSs.size();
+		if (segmentsSize > 0) {
+			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
+			if (prevTargetedStrikePrice != 0 && !lastIGS.identifier.equals("d")) {
+				targetedStrikePrice = Math.max(targetedStrikePrice, prevTargetedStrikePrice);
+			}
+		}*/
+		
+		downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
+		double callPriceTotarget = 0;
+		if (dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time)) {
+			callPriceTotarget = dayData.getCallDataMap().get(targetedStrikePrice).get(time).getClosePrice();
+		}
+		callPriceTotarget = callPriceTotarget * 1.1;
+		
+		/*double premiumPercent = ((callPriceTotarget / closeAtTime) * 100);
+		if (premiumPercent < 0.05 && upRelativeToOpen == false) {
+			targetedStrikePrice = targetedStrikePrice - 1;
+			downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
+			if (dayData.getCallDataMap().get(targetedStrikePrice).containsKey(prevStaggeredTime)) {
+				callPriceTotarget = dayData.getCallDataMap().get(targetedStrikePrice).get(prevStaggeredTime).getClosePrice();
+			}
+			callPriceTotarget = callPriceTotarget * 1.1;
+		}*/
+		
+		callPriceTotarget = Math.max(callPriceTotarget, ((0.05 * closeAtTime) / 100));
+		
+		return new StrikeWithPrice(targetedStrikePrice, callPriceTotarget, downloadedMoreData);
+	}
+	
 	public static void main(String[] args) throws Exception {
 		Downloader downloader = new Downloader();
 		int increment = 1;
@@ -68,6 +119,9 @@ public class QQQCallTester {
 			System.out.println("Error reading cache");
 			return;
 		}
+		
+		Map<String, Double> vixAvgMap = Util.deserializeDoubleHashMap("config/VIXAvgMap.txt");
+		Map<String, Map<String, MinuteData>> vixRawData = Util.readVixRawData("config/VIX_full_5min.txt");
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		Date startDate = sdf.parse("2022-12-01");
@@ -80,21 +134,21 @@ public class QQQCallTester {
 		double prevClosePrice = 0;
 		double sumprofitPcnt = 0.0;
 		double sumprofitPcntWithLimit = 0.0;
-		double sumProfitPcntWithLoss = 0.0;
+		double sumExperimentProfitPcnt = 0.0;
 		int totaldays = 0;
 		int problemCases = 0;
-		int problemCasesSubset = 0;
+		int experimentCasesSubset = 0;
 		
 		boolean downloadedMoreData = false;
 		String startTime = "07:15";
 		String closeTime = "12:50";
 		String midMidTime = "08:30";
-		String midTime = "11:00";
+		String midTime = "09:30";
 		double ninetyPercentileBarChange = 0.3;
 		double sumPremiumPercent = 0.0;
-		//double sumbookedPositionProfit = 0.0;
+		double sumExperimentPremiumPcnt = 0.0;
 		//double sumSecondProfitPcnt = 0.0;
-		List<String> stopLossHit = new ArrayList<>();
+		Map<String, String> allCasesReadable = new LinkedHashMap<>();
 		Map<String, Double> allCases = new LinkedHashMap<>();
 		LinkedList<Double> volatilityQueue = new LinkedList<>();
 		
@@ -120,50 +174,53 @@ public class QQQCallTester {
 			
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
+			//GSInterpretation gsInterpretation = new GSInterpretation();
 			String optionSellingTime = null;
 			double closeAtStartTime = dayData.getMinuteDataMap().get(startTime).getClosePrice();
 			double strikePrice = 0;//((int) (closeAtStartTime + 0.01 * closeAtStartTime));
-			//downloadedMoreData = downloadCallData(strikePrice, currentDateString, dayData, downloader, downloadedMoreData);
-			double soldCallPrice = 0;//dayData.getCallDataMap().get(strikePrice).get(optionSellingTime).getClosePrice();//0;
-			//double dayLowPrice = dayData.getMinuteDataMap().get(startTime).getClosePrice();
+			boolean uSignal = true;
+			double soldCallPrice = 0;
+			//double dayopen = dayData.getMinuteDataMap().get("06:30").getOpenPrice();
+			//boolean upRelativeToOpen = (dayData.getMinuteDataMap().get(startTime).getClosePrice() >= dayopen);
+			//String prevStaggeredTime = startTime;
+			//String staggeredTime = Util.timeNMinsAgo(prevStaggeredTime, -5);
 			
-			double percentHigherFactor = 0.009;
-			double priceLevelToPlaceOrder = closeAtStartTime;
-			double targetedStrikePrice = ((int) (priceLevelToPlaceOrder + percentHigherFactor * priceLevelToPlaceOrder));
-			downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
-			double callPriceTotarget = dayData.getCallDataMap().get(targetedStrikePrice).get(startTime).getClosePrice();
-			callPriceTotarget = callPriceTotarget * 1.1;
+			//StrikeWithPrice swp = getStrikeWithPrice(dayData, startTime, downloader, currentDateString, downloadedMoreData);
+			double targetedStrikePrice = 0;//swp.strike;
+			double prevTargetedStrikePrice = 0;
+			//downloadedMoreData = swp.downloadedMoreData;
+			double callPriceTotarget = 0;//swp.price;
 			for (String time : dayData.getMinuteDataMap().keySet()) {
+				if (callPriceTotarget > 0 
+						&& dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time) 
+						&& dayData.getCallDataMap().get(targetedStrikePrice).get(time).getHighPrice() >= callPriceTotarget
+						&& uSignal == false//!lastGS.identifier.equals("u") //|| doesGSHasAnyDorDr(graphSegments))
+						//&& !lastGS.identifier.equals("ur")
+					) {
+					strikePrice = targetedStrikePrice;
+					optionSellingTime = time;
+					soldCallPrice = callPriceTotarget;
+					break;
+				}
+				
 				GSUtil.calculateGraphSegments(graphSegments, dayData.getMinuteDataMap().get(time).getVolume(),
 						dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),
 						dayData.getMinuteDataMap().get(time).getHighPrice(), dayData.getMinuteDataMap().get(time).getLowPrice(),
 						time, ninetyPercentileBarChange, priceWithTime);
-				if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
-					//System.out.println(time);
-					double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+				//List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
+				if (time.compareTo(startTime) >= 0 && time.compareTo(midTime) < 0) {
 					GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
-					if (callPriceTotarget >= (closeAtTime / 4000) 
-							&& dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time) 
-							&& dayData.getCallDataMap().get(targetedStrikePrice).get(time).getHighPrice() >= callPriceTotarget
-							&& !lastGS.identifier.equals("u") //|| doesGSHasAnyDorDr(graphSegments))
-							//&& !lastGS.identifier.equals("ur")
-						) {
-						strikePrice = targetedStrikePrice;
-						optionSellingTime = time;
-						soldCallPrice = callPriceTotarget;
-						break;
+					//System.out.println(time);
+					if (!lastGS.identifier.equals("u") && time.compareTo(startTime) >= 0) {
+						uSignal = false;
 					}
-					priceLevelToPlaceOrder = closeAtTime;
-					targetedStrikePrice = (time.compareTo(midMidTime) > 0) 
-							              ? ((int) (priceLevelToPlaceOrder + percentHigherFactor * priceLevelToPlaceOrder))
-							              : ((int) (priceLevelToPlaceOrder + percentHigherFactor * priceLevelToPlaceOrder));
-					//System.out.println(targetedStrikePrice);
-					downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
-					callPriceTotarget = 0;
-					if (dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time)) {
-						callPriceTotarget = dayData.getCallDataMap().get(targetedStrikePrice).get(time).getClosePrice();
-					}
-					callPriceTotarget = callPriceTotarget * 1.1;
+					
+					
+					prevTargetedStrikePrice = targetedStrikePrice;
+					StrikeWithPrice swp = getStrikeWithPrice(dayData, time, downloader, currentDateString, downloadedMoreData, prevTargetedStrikePrice, null);
+					targetedStrikePrice = swp.strike;
+					downloadedMoreData = swp.downloadedMoreData;
+					callPriceTotarget = swp.price;
 				}
 			}
 			/*double strikePrice = 0;
@@ -209,14 +266,14 @@ public class QQQCallTester {
 			if (avgVolatility > 0 && totalOptionPriceAtStartTime >= (1.66 * avgVolatility)) {
 				calendar.add(Calendar.DATE, 1);
 		        currentDate = calendar.getTime();
-		        System.out.println(currentDateString + " Did not process as avgVolatility high " + totalOptionPriceAtStartTime + "  " + avgVolatility);
+		        //System.out.println(currentDateString + " Did not process as avgVolatility high " + totalOptionPriceAtStartTime + "  " + avgVolatility);
 		        prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
 				continue;
 			}
 			if (!dayData.getMinuteDataMap().containsKey(closeTime)) {
 				calendar.add(Calendar.DATE, 1);
 		        currentDate = calendar.getTime();
-		        System.out.println(currentDateString + " Did not process as short day");
+		        //System.out.println(currentDateString + " Did not process as short day");
 		        prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
 				continue;
 			}
@@ -226,11 +283,24 @@ public class QQQCallTester {
 				volatilityQueue.poll();
 			}
 			
+			/*double avgVix = vixAvgMap.get(currentDateString);
+			Map<String, MinuteData> rawVixMap = vixRawData.get(currentDateString);
+			double rawVix = rawVixMap.get(startTime).getClosePrice();
+			if ((((rawVix - avgVix) / avgVix) * 100) < -10) {
+				calendar.add(Calendar.DATE, 1);
+		        currentDate = calendar.getTime();
+		        System.out.println(currentDateString + " Did not process as vix very low ");
+		        prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
+				continue;
+			}*/
 			if (strikePrice == 0) {
 				calendar.add(Calendar.DATE, 1);
 		        currentDate = calendar.getTime();
 		        System.out.println(currentDateString + " Did not process as no entry");
 		        prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
+		        if (downloadedMoreData) {
+					Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
+				}
 				continue;
 			}
 			double optionSellingTimePrice = dayData.getMinuteDataMap().get(optionSellingTime).getClosePrice();
@@ -266,8 +336,7 @@ public class QQQCallTester {
 						break;
 					}*/
 					if (!dayData.getCallDataMap().get(strikePrice).containsKey(time)) {
-						closedPriceTime = time;
-						break;
+						continue;
 					}
 					double currrentCallPriceAtStrike = dayData.getCallDataMap().get(strikePrice).get(time).getLowPrice();
 					double currentProfitPercent = ((currrentCallPriceAtStrike / optionSellingTimePrice) * 100);
@@ -410,17 +479,32 @@ public class QQQCallTester {
 				//if (bookedPositionProfit == false) {
 					
 					
-				//	if (touchcutOffPriceTime != null) {
-				//		System.out.println(currentDateString + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + breachedPrice + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
-				//	}
+				//if (currentDateString.equals("2023-03-16")) {
+				//	System.out.println(dayData.getCallDataMap().get(strikePrice));
+				//	System.out.println(currentDateString + "  " + totalOptionPriceAtStartTime + "  " + avgVolatility + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + optionSellingTime + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
+				//}
 				//} else {
 					//double callbuybackprice =  dayData.getCallDataMap().get(strikePrice).get(touchcutOffPriceTime).getClosePrice();
 					//profitPcnt = ((callbuybackprice / optionSellingTimePrice) * 100) - 0.1;
 					//sumprofitPcnt = sumprofitPcnt + profitPcnt;
+				
+				String rowToWrite = currentDateString + "  " + strikePrice + "  " + optionSellingTime + "  " + premiumPercent + "  " + profitPcnt;
+				allCasesReadable.put(currentDateString, rowToWrite);
+				
+				//if (premiumPercent < 0.05) {
+					//experimentCasesSubset++;
+					//sumExperimentProfitPcnt = sumExperimentProfitPcnt + profitPcnt;
+					//sumExperimentPremiumPcnt = sumExperimentPremiumPcnt + premiumPercent;
 				allCases.put(currentDateString + "  " + optionSellingTime, strikePrice);
-				if (profitPcnt > 0.3) {	
-					System.out.println(currentDateString + "  " + totalOptionPriceAtStartTime + "  " + avgVolatility + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + optionSellingTime + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
+				if (premiumPercent >= 0.09) {	
+					
+					System.out.println(rowToWrite);
+					experimentCasesSubset++;
+					sumExperimentProfitPcnt = sumExperimentProfitPcnt + profitPcnt;
+					sumExperimentPremiumPcnt = sumExperimentPremiumPcnt + premiumPercent;
 				}
+					//System.out.println(currentDateString + "  " + totalOptionPriceAtStartTime + "  " + avgVolatility + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + optionSellingTime + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
+				//}
 				//System.out.println(profitPcnt);
 				//if (dayData.getMinuteDataMap().get("12:55").getClosePrice() > strikePrice) {
 				//	problemNegativeCases++;
@@ -442,52 +526,89 @@ public class QQQCallTester {
 			if (downloadedMoreData) {
 				Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
 			}
-			Util.serializeDoubleHashMap(allCases, "config/QQQCallCases.txt");
+			//Util.serializeDoubleHashMap(allCases, "config/QQQCallCases.txt");
 			calendar.add(Calendar.DATE, 1);
 	        currentDate = calendar.getTime();
 		}
 		
-		/*for (String key : bokkedProfitMap.keySet()) {
-			double profit = bokkedProfitMap.get(key);
-			if (profit >= 0) {
-				sumbookedPositionProfit = sumbookedPositionProfit + profit;
-			} else {
-				sumSecondProfitPcnt = sumSecondProfitPcnt + profit;
-				secondproblemCases++;
-			}
-			System.out.println(key + "  " + bokkedProfitMap.get(key));
-		}*/
+		Map<String, String> masterResults = readResults("config/QQQCallMaster.txt");
 		
 		System.out.println("Loss due to rollback option selling at the end of the day " + sumprofitPcnt + "  " + problemCases);
 		System.out.println("Loss due to rollback option selling with Limit order " + sumprofitPcntWithLimit);
-		System.out.println("Loss due to rollback option selling with Limit loss " + sumProfitPcntWithLoss + "  " + problemCasesSubset);
-		
-		//System.out.println(problemCases);
-		//System.out.println("Position taken for case " + problemCasesSubset);
-		//System.out.println(secondproblemCases);
 		
 		System.out.println("Total Days " + totaldays);
 		
 		System.out.println("Profit from Premium selling " + sumPremiumPercent);
-		//System.out.println("Booked Profit from position exit " + sumbookedPositionProfit + "  " + (problemCasesSubset - secondproblemCases) + " Stop loss hit exit " + stopLossHit);
-		//System.out.println("Booked Profit from position exit " + sumbookedPositionProfit + "  " + (problemCasesSubset - secondproblemCases));
 		
-		//for (String key : bokkedProfitMap.keySet()) {
-		//	System.out.println(key + "  " + bokkedProfitMap.get(key));
-		//}
+		System.out.println("Diff View - Entries missing");
+		for (String key : masterResults.keySet()) {
+			if (!allCasesReadable.containsKey(key)) {
+				System.out.println(masterResults.get(key));
+			}
+		}
+		System.out.println("Diff View - Entries changed");
+		for (String key : masterResults.keySet()) {
+			if (allCasesReadable.containsKey(key) && !masterResults.get(key).equals(allCasesReadable.get(key)) ) {
+				System.out.println(allCasesReadable.get(key));
+			}
+		}
+		System.out.println("Diff View - New Entries");
+		for (String key : allCasesReadable.keySet()) {
+			if (!masterResults.containsKey(key)) {
+				System.out.println(allCasesReadable.get(key));
+			}
+		}
+		
+		System.out.println("Experiment premium Pcnt " + sumExperimentPremiumPcnt);
+		System.out.println("Experiment Loss Pcnt " + sumExperimentProfitPcnt);
+		System.out.println("Experiment count " + experimentCasesSubset);
+	}
+	
+	private static Map<String, String> readResults(String path){
+		InputStreamReader is = null;
+		BufferedReader br = null;
+		Map<String, String> results = new LinkedHashMap<>();
+		try {
+			is = new InputStreamReader(new FileInputStream(new 
+					File(path)));
+			br =  new BufferedReader(is);
+			String line; 
+			while ((line = br.readLine()) != null) {
+				String[] linsVals = line.split("  ");
+				results.put(linsVals[0], line);
+			}
+		} catch (Exception e) {
+			LoggerUtil.getLogger().info(e.getMessage());
+			//System.exit(1);
+		}finally{
+			 try {
+				br.close();
+				is.close();
+				
+			} catch (Exception e) {}
+		}
+		return results;
+	}
+	
+	static class StrikeWithPrice {
+		double strike;
+		double price;
+		boolean downloadedMoreData;
+		
+		public StrikeWithPrice(double strike, double price, boolean downloadedMoreData) {
+			this.strike = strike;
+			this.price = price;
+			this.downloadedMoreData = downloadedMoreData;
+		}
 	}
 
 }
 
 /*
 
-Loss due to rollback option selling at the end of the day 15.745210423946967  57
-Loss due to rollback option selling with Limit order 0.7750000000000006
-Total Days 212
-Profit from Premium selling 19.98269952791261
-
-Loss due to rollback option selling 7.349199172592204  39
-Total Days 212
-Profit from Premium selling 15.168938189796814
+Loss due to rollback option selling at the end of the day 13.979537490733382  71
+Loss due to rollback option selling with Limit order 0.6200000000000004
+Total Days 195
+Profit from Premium selling 20.546904379446254
 
  */

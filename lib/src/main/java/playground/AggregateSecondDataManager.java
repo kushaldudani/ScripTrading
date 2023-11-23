@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 import org.apache.http.HttpResponse;
@@ -18,20 +20,18 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
-import ScripTrading.DayData;
 import ScripTrading.LoggerUtil;
 import ScripTrading.MinuteData;
-import ScripTrading.Util;
 
 public class AggregateSecondDataManager {
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		AggregateSecondDataManager downloader = new AggregateSecondDataManager();
-		
+		downloader.getData();
 		
 	}
 	
-	private Map<String, DayData> dayDataMap;
+	private Map<String, Map<String, MinuteData>> dayDataMap = new LinkedHashMap<>();
 	
 	private HttpClient client;
 
@@ -40,13 +40,59 @@ public class AggregateSecondDataManager {
 		client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
 	}
 	
-	public void getOptionData(int strikePrice) {
-		if (dayDataMap == null) {
-			dayDataMap = Util.deserializeHashMap("config/QQQSeconds.txt");
+	private void getData() throws Exception {
+		//if (dayDataMap == null) {
+		//	dayDataMap = Util.deserializeHashMap("config/QQQSeconds.txt");
+		//}
+		//if (dayDataMap == null) {
+		//	throw new IllegalStateException("Error reading QQQSeconds cache");
+		//}
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Date startDate = sdf.parse("2022-12-01");
+		//Date endDate = sdf.parse("2023-09-06");
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTimeInMillis(System.currentTimeMillis());
+		Date nowDate = calendar.getTime();
+		boolean downloadedMoreData = false;
+		String startTime = "07:15";
+		
+		
+		Date currentDate = startDate;
+		while (currentDate.before(nowDate)) {
+			downloadedMoreData = false;
+			calendar.setTime(currentDate);
+			String currentDateString = sdf.format(currentDate);
+	        // which day of the week, get the price of underlying stock/etf
+			int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+			if (dayOfWeek == 1 || dayOfWeek == 7) {
+				calendar.add(Calendar.DATE, 1);
+		        currentDate = calendar.getTime();
+				continue;
+			}
+			if (!dayDataMap.containsKey(currentDateString)) {
+				Map<String, MinuteData> minuteDataMap = downloadPrice("https://api.polygon.io/v2/aggs/ticker/VIX/range/5/minute/"+currentDateString+"/"+currentDateString+"?adjusted=true&sort=asc&apiKey=6xGq1Yv1LmfdH4fyoThIJphP7J3pdmRS");
+				if (minuteDataMap.isEmpty()) {
+					calendar.add(Calendar.DATE, 1);
+			        currentDate = calendar.getTime();
+					continue;
+				} else {
+					downloadedMoreData = true;
+					dayDataMap.put(currentDateString, minuteDataMap);
+				}
+			}
+			Map<String, MinuteData> dayData = dayDataMap.get(currentDateString);
+			System.out.println(dayData.get(currentDateString));
+			
+			
+			if (downloadedMoreData) {
+				
+			}
+			calendar.add(Calendar.DATE, 1);
+	        currentDate = calendar.getTime();
 		}
-		if (dayDataMap == null) {
-			throw new IllegalStateException("Error reading QQQSeconds cache");
-		}
+		
+		
+		
 	}
 	
 	private Map<String, MinuteData> downloadPrice(String baseUrl){
@@ -74,7 +120,7 @@ public class AggregateSecondDataManager {
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
 				bufferedReader = new BufferedReader(inputStreamReader);
 				String line;  
-				SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+				SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
 		        Calendar calendar = Calendar.getInstance();
 				while ((line = bufferedReader.readLine()) != null) {
 					//if (line.contains("56.67")) {

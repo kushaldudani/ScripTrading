@@ -5,6 +5,8 @@ import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -22,8 +24,9 @@ public class MarketHistory {
 		public static void main(String[] args) {
 			MarketHistory cs = new MarketHistory();
 			
-			MinuteData minuteData = cs.data("https://localhost:5000/v1/api/iserver/marketdata/history", 320227571, "09:35", null);
-			System.out.println(minuteData);
+			//MinuteData minuteData = cs.data("https://localhost:5000/v1/api/iserver/marketdata/history", 320227571, "09:35", null);
+			Map<String, MinuteData> mDataMap = cs.data("https://localhost:5000/v1/api/iserver/marketdata/history", 664123971, "&exchange=CBOE", "1d", "5min");
+			System.out.println(mDataMap);
 		}
 		
 		
@@ -36,17 +39,17 @@ public class MarketHistory {
 		}
 		
 		
-		MinuteData data(String baseUrl, long cId, String timeToFill, String exchangeInfo){
+		Map<String, MinuteData> data(String baseUrl, long cId, String exchangeInfo, String period, String bar){
 			SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
 	        Calendar calendar = Calendar.getInstance();
 	        calendar.setTimeInMillis(System.currentTimeMillis());
 	        Util.reauthIfNeeded(TickleMapProvider.getInstance().getTickleMap(), simpleDateFormat.format(calendar.getTime()));
 			
-	        String paramString = getParamString(cId, exchangeInfo);
+	        String paramString = getParamString(cId, exchangeInfo, period, bar);
 			int responseStatusCode = 0;
 			InputStreamReader inputStreamReader = null;
 			BufferedReader bufferedReader = null;
-			MinuteData minuteData = null;
+			Map<String, MinuteData> minuteDataMap = new LinkedHashMap<>();
 			long startTime = System.currentTimeMillis();
 			long currentTime = System.currentTimeMillis();
 			while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
@@ -93,15 +96,16 @@ public class MarketHistory {
 							
 							calendar.setTimeInMillis((Long) resultEntry.get("t"));
 							String time = simpleDateFormat.format(calendar.getTime());
-							if (time.equals(timeToFill)) {
-								minuteData = new MinuteData();
-								minuteData.setClosePrice((Double) resultEntry.get("c"));
-								minuteData.setOpenPrice((Double) resultEntry.get("o"));
-								minuteData.setHighPrice((Double) resultEntry.get("h"));
-								minuteData.setLowPrice((Double) resultEntry.get("l"));
-							}
+							//if (time.equals(timeToFill)) {
+							MinuteData minuteData = new MinuteData();
+							minuteData.setClosePrice((Double) resultEntry.get("c"));
+							minuteData.setOpenPrice((Double) resultEntry.get("o"));
+							minuteData.setHighPrice((Double) resultEntry.get("h"));
+							minuteData.setLowPrice((Double) resultEntry.get("l"));
+							minuteData.setVolume(getFromJson(resultEntry, "v"));
+							//}
                     		
-                    		//minuteDataMap.put(time, mData);
+                    		minuteDataMap.put(time, minuteData);
 						}
 						
 					}
@@ -129,11 +133,11 @@ public class MarketHistory {
 			currentTime = System.currentTimeMillis();
 			}
 			
-			return minuteData;
+			return minuteDataMap;
 		}
 		
-		private String getParamString(long cId, String exchangeInfo) {
-			String paramString = "?conid=" + cId + "&period=1d&bar=5min";
+		private String getParamString(long cId, String exchangeInfo, String period, String bar) {
+			String paramString = "?conid=" + cId + "&period="+period+"&bar="+bar;  // 1d 5min
 			if (exchangeInfo != null) {
 				paramString = paramString + exchangeInfo;
 			}
@@ -142,7 +146,13 @@ public class MarketHistory {
 			
 		}
 		
-	
+		private Double getFromJson(JSONObject resultEntry, String key) {
+			try {
+				return (Double) resultEntry.get(key);
+			} catch (Exception e) {
+				return ((Long) resultEntry.get(key)).doubleValue();
+			}
+		}
 		
 
 }

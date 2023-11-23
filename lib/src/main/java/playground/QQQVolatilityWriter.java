@@ -1,5 +1,9 @@
 package playground;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -9,6 +13,7 @@ import java.util.LinkedList;
 import java.util.Map;
 
 import ScripTrading.DayData;
+import ScripTrading.LoggerUtil;
 import ScripTrading.MetadataUtil;
 import ScripTrading.MinuteData;
 import ScripTrading.Util;
@@ -26,7 +31,7 @@ public class QQQVolatilityWriter {
 		}
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date startDate = sdf.parse("2023-08-01");
+		Date startDate = sdf.parse("2022-12-01");
 		//Date endDate = sdf.parse("2023-09-06");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
@@ -34,6 +39,7 @@ public class QQQVolatilityWriter {
 		LinkedList<Double> volatilityQueue = new LinkedList<>();
 		boolean downloadedMoreData = false;
 		String startTime = "07:15";
+		LinkedList<String> internalResultsToWrite = new LinkedList<>();
 		
 		
 		Date currentDate = startDate;
@@ -75,11 +81,11 @@ public class QQQVolatilityWriter {
 			
 			if (avgVolatility == 0 || totalOptionPriceAtStartTime < (1.66 * avgVolatility)) {
 				volatilityQueue.add(totalOptionPriceAtStartTime);
-				if (volatilityQueue.size() > 30) {
+				if (volatilityQueue.size() > 9) {
 					volatilityQueue.poll();
 				}
 			}
-			
+			internalResultsToWrite.add(currentDateString + "  " + avgVolatility + "  " + totalOptionPriceAtStartTime);
 			MetadataUtil.getInstance().writeVolatilityData(currentDateString, avgVolatility);
 			
 			if (downloadedMoreData) {
@@ -89,7 +95,29 @@ public class QQQVolatilityWriter {
 	        currentDate = calendar.getTime();
 		}
 		
+		writeVolatilityData(internalResultsToWrite);
 		
+	}
+	
+	private static void writeVolatilityData(LinkedList<String> internalResultsToWrite) {
+		OutputStreamWriter out = null;
+		BufferedWriter bw = null;
+		try{
+			out = new OutputStreamWriter(new FileOutputStream(new 
+					File("config/QQQVolatility.txt"),false));
+			bw =  new BufferedWriter(out);
+			for (String row : internalResultsToWrite) {
+				bw.write(row);
+				bw.write("\n");
+			}
+		} catch (Exception e) {
+			LoggerUtil.getLogger().info(e.getMessage());
+		} finally{
+			 try {
+				 bw.close();
+				out.close();
+			} catch (Exception e) {}
+		}		
 	}
 	
 	private static boolean downloadOptionData(double strikePrice, String currentDateString, DayData dayData, Downloader downloader, boolean downloadedMoreData) {

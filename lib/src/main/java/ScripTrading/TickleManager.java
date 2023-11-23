@@ -22,7 +22,7 @@ public class TickleManager implements Runnable {
 		SimpleDateFormat shorttimeFormatter = new SimpleDateFormat("HH:mm");
 		String time = shorttimeFormatter.format(currentDate);
 		
-		while (time.compareTo("13:02") <= 0) {
+		while (true) {
 			try {
 				int timeToSleep = 60000;
 				Thread.sleep(timeToSleep);
@@ -30,8 +30,10 @@ public class TickleManager implements Runnable {
 				calendar.setTimeInMillis(System.currentTimeMillis());
 				currentDate = calendar.getTime();
 				time = shorttimeFormatter.format(currentDate);
-				String sessionId = new Tickle().tickle();
+				Tickle tickleInstance = new Tickle();
+				String sessionId = tickleInstance.tickle();
 				tickleMap.put(time, sessionId);
+				tickleInstance.accountPing();
 			} catch (Exception e) {
 				LoggerUtil.getLogger().info(e.getMessage());
 			}

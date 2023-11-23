@@ -1,11 +1,15 @@
 package ScripTrading;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -143,6 +147,45 @@ public class Util {
         return cache;
 	}
 	
+	public static Map<String, Map<String, MinuteData>> readVixRawData(String path){
+		InputStreamReader is = null;
+		BufferedReader br = null;
+		Map<String, Map<String, MinuteData>> results = new LinkedHashMap<>();
+		try {
+			is = new InputStreamReader(new FileInputStream(new 
+					File(path)));
+			br =  new BufferedReader(is);
+			String line; 
+			while ((line = br.readLine()) != null) {
+				String[] linsVals = line.split(",");
+				String date = linsVals[0].split(" ")[0];
+				String time = linsVals[0].split(" ")[1].substring(0, 5);
+				time = Util.timeNMinsAgo(time, 180);
+				
+				MinuteData mData = new MinuteData();
+				mData.setClosePrice(Double.parseDouble(linsVals[4]));
+				
+			    if (!results.containsKey(date)) {
+			    	Map<String, MinuteData> minuteDataMap = new LinkedHashMap<>();
+			    	results.put(date, minuteDataMap);
+			    }
+			    
+				Map<String, MinuteData> minuteDataMap = results.get(date);
+				minuteDataMap.put(time, mData);
+			}
+		} catch (Exception e) {
+			LoggerUtil.getLogger().info(e.getMessage());
+			//System.exit(1);
+		}finally{
+			 try {
+				br.close();
+				is.close();
+				
+			} catch (Exception e) {}
+		}
+		return results;
+	}
+	
 	public static void serializeHashMap(Map<String, DayData> cache, String filename) {
 		try {
             FileOutputStream myFileOutStream
@@ -174,6 +217,27 @@ public class Util {
                 = new ObjectOutputStream(myFileOutStream);
   
             myObjectOutStream.writeObject(cache);
+  
+            // closing FileOutputStream and
+            // ObjectOutputStream
+            myObjectOutStream.close();
+            myFileOutStream.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+	}
+	
+	public static void serializeVixRawData(Map<String, Map<String, MinuteData>> vixRawData, String filename) {
+		try {
+            FileOutputStream myFileOutStream
+                = new FileOutputStream(
+                		filename);
+  
+            ObjectOutputStream myObjectOutStream
+                = new ObjectOutputStream(myFileOutStream);
+  
+            myObjectOutStream.writeObject(vixRawData);
   
             // closing FileOutputStream and
             // ObjectOutputStream

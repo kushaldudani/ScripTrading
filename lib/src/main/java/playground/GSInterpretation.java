@@ -1,11 +1,14 @@
 package playground;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import ScripTrading.GraphSegment;
 import ScripTrading.IGraphSegment;
+import ScripTrading.MinuteData;
+import ScripTrading.Util;
 import ScripTrading.IGraphSegment.PriceTime;
 import ScripTrading.IGraphSegment.PullBackLevel;
 // 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
@@ -40,145 +43,82 @@ public class GSInterpretation {
 		return currrentShortState;
 	}
 	
-	public void interpret(List<GraphSegment> graphArray, double closeAtTime, String time, double strike) {
+	public void interpret(List<GraphSegment> graphArray, double closeAtTime, String time, double strike, double avgVix, Map<String, MinuteData> rawVix,
+			LinkedList<String> optionVolumeSignalToUse) {
 		double ninetyPercentileBarChange = 0.3;
 		List<IGraphSegment> interpretedGSs = interpretedGraphSegments(graphArray);
 		
-		evaluateLong(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike);
-		evaluateShort(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike);
+		evaluateLong(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse);
+		evaluateShort(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse);
 	}
 	
-	private void evaluateShort(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike) {
-		double strikeCutOff = strike + (strike * 0.003);
+	private void evaluateShort(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
+			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse) {
+		double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
+		double strikeCutOff = strike + (strike * 0.001); // Changing this to 0 will cut rows 3/24, 3/30 etc.
 		int segmentsSize = interpretedGSs.size();
 		int cntr = segmentsSize - 1;
 		IGraphSegment lowestStartU = null;
-		double highestUPrice = 0;
-		double highestDPrice = 0;
 		while (cntr >= 0) {
 			IGraphSegment interpretedGS = interpretedGSs.get(cntr);
 			if (interpretedGS.identifier.equals("u") && (lowestStartU == null || interpretedGS.startPrice < lowestStartU.startPrice) ) {
 				lowestStartU = interpretedGS;
 			}
-			if (interpretedGS.identifier.equals("d") && (highestDPrice == 0 || interpretedGS.startPrice > highestDPrice) ) {
-				highestDPrice = interpretedGS.startPrice;
-			}
-			if (interpretedGS.identifier.equals("u") && (highestUPrice == 0 || interpretedGS.endPrice > highestUPrice) ) {
-				highestUPrice = interpretedGS.endPrice;
-			}
 			cntr--;
 		}
 		
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
 			//
-			if (lastIGS.identifier.equals("d") 
+			if ( (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 45)
+					&& lastIGS.identifier.equals("d") 
 					&& (lowestStartU == null || lastIGS.endPrice < lowestStartU.startPrice) 
 					&& closeAtTime <= lastIGS.endPrice
 					&& time.compareTo("07:45") >= 0
-					&& ( (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange)
-					    || (strike > 0 && lastIGS.endPrice <= strikeCutOff) )
+					//&& (avgVix == 0 || (((rawVix - avgVix) / avgVix) * 100) <= 17)
 				) {
-				boolean hasUPullBack = false;
-				Iterator<PullBackLevel> itr = lastIGS.pullBackLevels.iterator();
-				while (itr.hasNext()) {
-					PullBackLevel pbLevel = itr.next();
-					if (pbLevel.identifier.equals("u")) {
-						hasUPullBack = true;
-					}
-				}
-				//if (!hasUPullBack || time.compareTo(VolumeGraphPatternEntry.midMidTime) <= 0) {
+				if ( ( (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange) && time.compareTo("09:15") <= 0 
+					     && (avgVix == 0 || (((rawVix - avgVix) / avgVix) * 100) <= 7) )
+					    || (strike > 0 && lastIGS.endPrice <= strikeCutOff)
+					) {
 					currrentShortState = GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES;
-				//}
-			}
-			//
-			if (currrentShortState != GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES
-					&& lastIGS.identifier.equals("d") && lastIGS.pullBackLevels.isEmpty()
-					&& highestUPrice != 0 && highestUPrice >= highestDPrice
-					&& (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange)
-					&& time.compareTo(VolumeGraphPatternEntry.midMidTime) <= 0) {
-				IGraphSegment secondLastIGS = interpretedGSs.get(segmentsSize - 2);
-				if (secondLastIGS.identifier.equals("u")
-						&& (((secondLastIGS.endPrice - secondLastIGS.startPrice) / secondLastIGS.startPrice) * 100) <= (2.5 * ninetyPercentileBarChange)) {
-					currrentShortState = GSInterpretationType.PULLBACK_SHORT_IN_EARLY_STAGES;
 				}
 			}
-			//
-			if (currrentShortState != GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES
-					&& currrentShortState != GSInterpretationType.PULLBACK_SHORT_IN_EARLY_STAGES
-					&& time.compareTo(VolumeGraphPatternEntry.midMidTime) <= 0) {
-				currrentShortState = GSInterpretationType.UNKNOWN_SHORT_IN_EARLY_STAGES;
-			}
-		} else {
-			currrentShortState = GSInterpretationType.NON_DIRECTIONAL;
 		}
 	}
 
-	private void evaluateLong(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike) {
-		double strikeCutOff = strike - (0.003 * strike);
+	private void evaluateLong(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
+			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse) {
+		double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
+		double strikeCutOff = strike - (0.001 * strike);
 		int segmentsSize = interpretedGSs.size();
 		int cntr = segmentsSize - 1;
 		IGraphSegment highestStartD = null;
-		double lowestUPrice = 0;
-		double lowestDPrice = 0;
 		while (cntr >= 0) {
 			IGraphSegment interpretedGS = interpretedGSs.get(cntr);
 			if (interpretedGS.identifier.equals("d") && (highestStartD == null || interpretedGS.startPrice > highestStartD.startPrice) ) {
 				highestStartD = interpretedGS;
 			}
-			if (interpretedGS.identifier.equals("d") && (lowestDPrice == 0 || interpretedGS.endPrice < lowestDPrice) ) {
-				lowestDPrice = interpretedGS.endPrice;
-			}
-			if (interpretedGS.identifier.equals("u") && (lowestUPrice == 0 || interpretedGS.startPrice < lowestUPrice) ) {
-				lowestUPrice = interpretedGS.startPrice;
-			}
 			cntr--;
 		}
 		
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
 			//
-			if (lastIGS.identifier.equals("u") 
+			if ((optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30)
+					&& lastIGS.identifier.equals("u")
 					&& (highestStartD == null || lastIGS.endPrice > highestStartD.startPrice)
 					&& closeAtTime >= lastIGS.endPrice
-					&& time.compareTo("07:45") >= 0
-					//&& (((strike - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (4 * ninetyPercentileBarChange)
-					&& (  (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange)
-					   || (strike > 0 && lastIGS.endPrice >= strikeCutOff) )
+					&& time.compareTo("07:40") >= 0 //&& time.compareTo("09:15") <= 0 
+					&& ( avgVix == 0 || (((rawVix - avgVix) / avgVix) * 100) <= 20 ) //&& (((rawVix - avgVix) / avgVix) * 100) >= -6
+					//&& ( ( (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange) && time.compareTo("09:15") <= 0
+					//		 )
+					   //|| (strike > 0 && lastIGS.endPrice >= strikeCutOff) 
+					//   )
 				) {
-				boolean hasDPullBack = false;
-				Iterator<PullBackLevel> itr = lastIGS.pullBackLevels.iterator();
-				while (itr.hasNext()) {
-					PullBackLevel pbLevel = itr.next();
-					if (pbLevel.identifier.equals("d")) {
-						hasDPullBack = true;
-					}
-				}
-				//if (!hasDPullBack || time.compareTo(VolumeGraphPatternEntry.midMidTime) <= 0) {
-					currrentLongState = GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES;
-				//}
+				
+				currrentLongState = GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES;
 			}
-			//
-			if (currrentLongState != GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES
-					&& lastIGS.identifier.equals("u") && lastIGS.pullBackLevels.isEmpty()
-					&& lowestDPrice != 0 && lowestDPrice <= lowestUPrice
-					&& (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange)
-					//&& !graphSegments.get(graphSegments.size() - 1).identifier.equals("c")
-					&& time.compareTo(VolumeGraphPatternEntry.midMidTime) <= 0) {
-				IGraphSegment secondLastIGS = interpretedGSs.get(segmentsSize - 2);
-				if (secondLastIGS.identifier.equals("d")
-						&& (((secondLastIGS.startPrice - secondLastIGS.endPrice) / secondLastIGS.startPrice) * 100) <= (2.5 * ninetyPercentileBarChange)) {
-					currrentLongState = GSInterpretationType.PULLBACK_LONG_IN_EARLY_STAGES;
-				}
-			}
-			//
-			if (currrentLongState != GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES
-					&& currrentLongState != GSInterpretationType.PULLBACK_LONG_IN_EARLY_STAGES
-					&& time.compareTo(VolumeGraphPatternEntry.midMidTime) <= 0) {
-				currrentLongState = GSInterpretationType.UNKNOWN_LONG_IN_EARLY_STAGES;
-			}
-		} else {
-			currrentLongState = GSInterpretationType.NON_DIRECTIONAL;
 		}
 	}
 	

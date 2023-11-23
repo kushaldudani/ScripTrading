@@ -66,7 +66,7 @@ public class GSUtil {
               }
           }
           else if (prevGS.identifier.equals("u")) {
-              if (diffTime(prevGS.endTime, time) >= 30) {
+              if (diffTime(prevGS.endTime, time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.endTime, time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -94,7 +94,7 @@ public class GSUtil {
             	  //prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  //graphArray.add(new GraphSegment("u", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -121,7 +121,7 @@ public class GSUtil {
                   prevGS.pullbackTime.add(time);
                   prevGS.barCount = prevGS.barCount + 1;
                   
-              } else if (diffTime(prevGS.endTime, time) >= 30) {
+              } else if (diffTime(prevGS.endTime, time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.endTime, time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -140,7 +140,7 @@ public class GSUtil {
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
                   graphArray.add(new GraphSegment("u", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -197,7 +197,7 @@ public class GSUtil {
               }
           }
           else if (prevGS.identifier.equals("d")) {
-        	  if (diffTime(prevGS.endTime, time) >= 30) { // Math.abs(((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100) < ninetyPercentileBarChange &&
+        	  if (diffTime(prevGS.endTime, time) >= 25) { // Math.abs(((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100) < ninetyPercentileBarChange &&
         		  int barcount4NewSegment = diffTime(prevGS.endTime, time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
         		  graphArray.add(new GraphSegment("c", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -225,7 +225,7 @@ public class GSUtil {
             	  //prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  //graphArray.add(new GraphSegment("d", prevGS.pullbackTime, time, prevGS.pullbackPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -252,7 +252,7 @@ public class GSUtil {
                   prevGS.pullbackTime.add(time);
                   prevGS.barCount = prevGS.barCount + 1;
                   
-              } else if (diffTime(prevGS.endTime, time) >= 30) {
+              } else if (diffTime(prevGS.endTime, time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.endTime, time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
@@ -271,7 +271,7 @@ public class GSUtil {
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
                   graphArray.add(new GraphSegment("d", prevGS.endTime, time, prevGS.endPrice, fiveMinClose, fiveMinClose, barcount4NewSegment));
                   
-              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 30) {
+              } else if (diffTime(prevGS.pullbackTime.peekLast(), time) >= 25) {
             	  int barcount4NewSegment = diffTime(prevGS.pullbackTime.peekLast(), time) / 5;
             	  prevGS.barCount = prevGS.barCount - barcount4NewSegment + 1;
             	  graphArray.add(new GraphSegment("c", prevGS.pullbackTime.peekLast(), time, prevGS.pullbackPrice.peekLast(), fiveMinClose, fiveMinClose, barcount4NewSegment));

@@ -13,8 +13,13 @@ public class MainMethod {
 	
 	
 	public static void main(String[] args) {
-		ExecutorService WORKER_THREAD_POOL = Executors.newFixedThreadPool(5);
+		ExecutorService WORKER_THREAD_POOL = Executors.newFixedThreadPool(6);
 		SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+		
+		Map<String, String> tickleMap = Collections.synchronizedMap(new LinkedHashMap<>());
+		TickleManager tickleManager = new TickleManager(tickleMap);
+		WORKER_THREAD_POOL.submit(tickleManager);
+		TickleMapProvider.getInstance().setTickleMap(tickleMap);
 		
 		while (true) {
 			Calendar calendar = Calendar.getInstance();
@@ -28,21 +33,21 @@ public class MainMethod {
 				try {
 					CountDownLatch latch = new CountDownLatch(1);
 					Map<String, MinuteData> minuteDataMap = Collections.synchronizedMap(new LinkedHashMap<>());
-					Map<String, String> tickleMap = Collections.synchronizedMap(new LinkedHashMap<>());
-					Map<String, String> notifictionMap = Collections.synchronizedMap(new LinkedHashMap<>());
+					Map<String, String> longnotifictionMap = Collections.synchronizedMap(new LinkedHashMap<>());
+					Map<String, String> shortnotifictionMap = Collections.synchronizedMap(new LinkedHashMap<>());
+					//Map<Long, Double> conIdToStrike = Collections.synchronizedMap(new LinkedHashMap<>());
 					
-					SendMail smail = new SendMail(notifictionMap);
+					SendMail smail = new SendMail(longnotifictionMap, shortnotifictionMap);
 					WORKER_THREAD_POOL.submit(smail);
 					
 					MinuteDataManager mdm = new MinuteDataManager(latch, minuteDataMap);
 					WORKER_THREAD_POOL.submit(mdm);
 					
-					OrderTracker orderTracker = new OrderTracker(minuteDataMap, notifictionMap);
-					WORKER_THREAD_POOL.submit(orderTracker);
+					LongOrderTracker longorderTracker = new LongOrderTracker(minuteDataMap, longnotifictionMap);
+					WORKER_THREAD_POOL.submit(longorderTracker);
 					
-					TickleManager tickleManager = new TickleManager(tickleMap);
-					WORKER_THREAD_POOL.submit(tickleManager);
-					TickleMapProvider.getInstance().setTickleMap(tickleMap);
+					ShortOrderTracker shortorderTracker = new ShortOrderTracker(minuteDataMap, shortnotifictionMap);
+					WORKER_THREAD_POOL.submit(shortorderTracker);
 					
 					OrderPoller orderPoller = new OrderPoller();
 					WORKER_THREAD_POOL.submit(orderPoller);

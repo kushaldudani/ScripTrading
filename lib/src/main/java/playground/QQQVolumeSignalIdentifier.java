@@ -1,5 +1,9 @@
 package playground;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -10,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import ScripTrading.DayData;
+import ScripTrading.LoggerUtil;
 import ScripTrading.Util;
 
 public class QQQVolumeSignalIdentifier {
@@ -31,10 +36,11 @@ public class QQQVolumeSignalIdentifier {
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		//String nowDate = sdf.format(calendar.getTime());
 		Map<String, LinkedList<Double>> volumeMap = new LinkedHashMap<>(); 
+		Map<String, Map<String, Double>> sameDayVolumeMap = new LinkedHashMap<>(); 
 		double prevClosePrice = 0;
 		boolean downloadedMoreData = false;
-		int totaldays = 0;
-		int volumeSignal = 0;
+		//int totaldays = 0;
+		//int volumeSignal = 0;
 		
 		Date currentDate = startDate;
 		while (currentDate.before(endDate)) {
@@ -57,28 +63,34 @@ public class QQQVolumeSignalIdentifier {
 			DayData dayData = dayDataMap.get(currentDateString);
 			
 			if (currentDateString.compareTo("2022-12-01") >= 0 && !currentDateString.equals("2023-07-03")
-					&& currentDateString.equals("2023-06-12")
+				//	&& currentDateString.equals("2023-06-12")
 					) {
-				totaldays++;
+				//totaldays++;
+				sameDayVolumeMap.put(currentDateString, new LinkedHashMap<>());
 				String time = VolumeGraphPatternEntry.startTime;
-				while (time.compareTo(VolumeGraphPatternEntry.midTime) < 0) {
-					double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
-					String timeBegin = Util.timeNMinsAgo(time, 15);
+				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {
+					//double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+					String timeBegin = Util.timeNMinsAgo(time, 45);
 					String timeEnd = time;//Util.timeNMinsAgo(time, -15);
 					double avgVolume = VolumeGraphPatternEntry.findAvgVolume(dayData, timeBegin, timeEnd);
 					//double avgVolume = VolumeGraphPatternEntry.findAvgVolumeAcrossDays(volumeMap, timeBegin, timeEnd);
 					//double volFactor = dayData.getMinuteDataMap().get(time).getVolume() / avgVolume;
 					
 					double curVolume = dayData.getMinuteDataMap().get(time).getVolume();
+					Map<String, Double> sameDayVolumeMapEntry = sameDayVolumeMap.get(currentDateString);
+					sameDayVolumeMapEntry.put(time, avgVolume);
+					if (currentDateString.equals("2023-10-05")) {
+						System.out.println(currentDateString + "  " + time + "  " + avgVolume + "  " + curVolume);
+					}
 					//System.out.println(time);
 					//System.out.println("curVolume " + curVolume);
 					//System.out.println("avgVolume " + avgVolume);
-					if (curVolume >= (2 * avgVolume) 
+					//if (curVolume >= (2 * avgVolume) 
 						//&& (closeAtTime < (floorPrice + (3 * ninetyPercentileBarChange * floorPrice / 100)))
-						) {
-						volumeSignal++;
-						System.out.println(currentDateString + "  " + time + "  " + avgVolume + "  " + curVolume);
-					}
+					//	) {
+					//	volumeSignal++;
+					//	System.out.println(currentDateString + "  " + time + "  " + avgVolume + "  " + curVolume);
+					//}
 					
 					time = Util.timeNMinsAgo(time, -5);
 				}
@@ -98,19 +110,41 @@ public class QQQVolumeSignalIdentifier {
 			}
 			
 			prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
-			if (downloadedMoreData) {
-				Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
-			}
+			//if (downloadedMoreData) {
+			//	Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
+			//}
 			calendar.add(Calendar.DATE, 1);
 	        currentDate = calendar.getTime();
 		}
 		
-		System.out.println("Total Days " + totaldays);
-		System.out.println("Volume Signal Cases " + volumeSignal);
-		
+		//System.out.println("Total Days " + totaldays);
+		//System.out.println("Volume Signal Cases " + volumeSignal);
+		writeVolumeData(sameDayVolumeMap);
 	}
 	
-	
+	private static void writeVolumeData(Map<String, Map<String, Double>> sameDayVolumeMap) {
+		OutputStreamWriter out = null;
+		BufferedWriter bw = null;
+		try{
+			out = new OutputStreamWriter(new FileOutputStream(new 
+					File("config/QQQAvgVolume.txt"),false));
+			bw =  new BufferedWriter(out);
+			for (String key : sameDayVolumeMap.keySet()) {
+				Map<String, Double> sameDayVolumeMapEntry = sameDayVolumeMap.get(key);
+				for (String timeKey : sameDayVolumeMapEntry.keySet()) {
+					bw.write(key + "  " + timeKey + "  " + sameDayVolumeMapEntry.get(timeKey));
+					bw.write("\n");
+				}
+			}
+		} catch (Exception e) {
+			LoggerUtil.getLogger().info(e.getMessage());
+		} finally{
+			 try {
+				 bw.close();
+				out.close();
+			} catch (Exception e) {}
+		}		
+	}
 
 }
 

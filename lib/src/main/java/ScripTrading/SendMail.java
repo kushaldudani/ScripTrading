@@ -18,15 +18,17 @@ import javax.mail.internet.MimeMessage;
 public class SendMail implements Runnable {
 	
 	public static void main(String[] args) {
-		SendMail sm = new SendMail(null);
-		sm.generateAndSendEmail("Test");
+		SendMail sm = new SendMail(null, null);
+		sm.generateAndSendEmail("Test", "Test");
 	}
 	
-	private Map<String, String> notifictionMap;
+	private Map<String, String> longnotifictionMap;
+	private Map<String, String> shortnotifictionMap;
 	private Set<String> emailSentTracker = new HashSet<>();
 	
-	public SendMail(Map<String, String> notifictionMap) {
-		this.notifictionMap = notifictionMap;
+	public SendMail(Map<String, String> longnotifictionMap, Map<String, String> shortnotifictionMap) {
+		this.longnotifictionMap = longnotifictionMap;
+		this.shortnotifictionMap = shortnotifictionMap;
 	}
 	
 	@Override
@@ -49,8 +51,8 @@ public class SendMail implements Runnable {
 				time = Util.findNearestFiveMinute(shorttimeFormatter.format(currentDate));
 				time = Util.timeNMinsAgo(time, 5);
 				
-				if (notifictionMap.containsKey(time) && !emailSentTracker.contains(time)) {
-					generateAndSendEmail(notifictionMap.get(time));
+				if (longnotifictionMap.containsKey(time) && shortnotifictionMap.containsKey(time) && !emailSentTracker.contains(time)) {
+					generateAndSendEmail(longnotifictionMap.get(time), shortnotifictionMap.get(time));
 					emailSentTracker.add(time);
 				}
 			} catch (Exception e) {
@@ -60,7 +62,7 @@ public class SendMail implements Runnable {
 		
 	}
 	
-	private void executeMail(String message, String subject) {
+	private void executeMail(String longmessage, String shortmessage, String subject) {
 		try{		
 			
 			Properties mailServerProperties = System.getProperties();
@@ -79,8 +81,8 @@ public class SendMail implements Runnable {
 			//generateMailMessage.addRecipient(Message.RecipientType.CC, new InternetAddress("sakshi.dalmia@gmail.com"));
 			generateMailMessage.addRecipient(Message.RecipientType.CC, new InternetAddress("agarwa27@gmail.com"));
 			generateMailMessage.setSubject(subject);
-			//String emailBody = "Test email by Crunchify.com JavaMail API example. " + "<br><br> Regards, <br>Crunchify Admin";
-			generateMailMessage.setContent(message, "text/html");
+			String emailBody = "Details for Long side. <br><br> " + longmessage + " <br><br> " + "Details for Short side. <br><br>" + shortmessage;
+			generateMailMessage.setContent(emailBody, "text/html");
 			
 	 
 	//Step3		
@@ -98,10 +100,10 @@ public class SendMail implements Runnable {
 		}
 	}
 	
-	private void generateAndSendEmail(String message)  {
+	private void generateAndSendEmail(String longmessage, String shortmessage)  {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		Calendar today = Calendar.getInstance();
-		executeMail(message, "QQQ Day Trading "+sdf.format(today.getTime()));
+		executeMail(longmessage, shortmessage, "QQQ Day Trading "+sdf.format(today.getTime()));
 	}
 
 }

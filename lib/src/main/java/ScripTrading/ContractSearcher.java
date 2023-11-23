@@ -19,12 +19,14 @@ public class ContractSearcher {
 	
 	// https://localhost:5000/v1/api/iserver/secdef/info?conid=320227571&sectype=OPT&month=NOV23&right=C&exchange=SMART&strike=370
 	// https://localhost:5000/v1/api/iserver/secdef/info?conid=320227571&sectype=OPT&month=SEP23&right=C&exchange=SMART&strike=370
+	// VIX contract id -> 13455763 https://localhost:5000/v1/api/iserver/marketdata/history?conid=13455763&period=30d&bar=1d
+	// java -Djavax.net.ssl.trustStore="/usr/lib/jvm/java-11-openjdk-amd64/conf/security/jssecacerts" -jar combined_2023-11-15.jar
 	
 	public static void main(String[] args) {
 		ContractSearcher cs = new ContractSearcher();
 		
 		//cs.searchPrequisite("https://localhost:5000/v1/api/iserver/secdef/search");
-		long conId = cs.search("https://localhost:5000/v1/api/iserver/secdef/info", "2023-09-26", 370, "SEP23", "07:15", "C");
+		long conId = cs.search("https://localhost:5000/v1/api/iserver/secdef/info", "2023-11-22", 391, "NOV23", "10:00", "C");
 		System.out.println(conId);
 	}
 	

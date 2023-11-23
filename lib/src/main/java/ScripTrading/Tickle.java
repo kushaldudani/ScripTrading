@@ -16,7 +16,8 @@ public class Tickle {
 	public static void main(String[] args) {
 		Tickle cs = new Tickle();
 		
-		cs.tickle();
+		//cs.tickle();
+		cs.accountPing();
 		//System.out.println(minuteDataMap);
 	}
 	
@@ -143,6 +144,57 @@ public class Tickle {
 			//System.out.println(responsecode);
 		
 		return response;
+	}
+	
+	void accountPing(){
+		String baseUrl = "https://localhost:5000/v1/api/iserver/accounts";
+		int responseStatusCode = 0;
+		InputStreamReader inputStreamReader = null;
+		BufferedReader bufferedReader = null;
+		try{
+			HttpResponse response = HttpUtil.get(baseUrl, "", client);
+			System.out.println(response.getStatusLine());
+			responseStatusCode = response.getStatusLine().getStatusCode();
+			if (responseStatusCode == 404) {
+				System.out.println("tickle responseStatusCode 404 ");
+				LoggerUtil.getLogger().info("tickle responseStatusCode 404 ");
+				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
+				//Thread.sleep(5000);
+			}
+			if(responseStatusCode == 500){
+				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
+				bufferedReader = new BufferedReader(inputStreamReader);
+				String line;
+				while ((line = bufferedReader.readLine()) != null) {
+					System.out.println(line);
+					LoggerUtil.getLogger().info(line);
+				}
+			}
+			if(responseStatusCode == 200){
+				//inputStreamReader = new InputStreamReader(response.getEntity().getContent());
+				//bufferedReader = new BufferedReader(inputStreamReader);
+				//String line;  
+				//while ((line = bufferedReader.readLine()) != null) {
+					
+					
+				//}
+			}
+		}catch(Exception e){
+			LoggerUtil.getLogger().info(e.getMessage());
+		}finally{
+			if(bufferedReader != null){
+				try {
+					bufferedReader.close();
+				} catch (Exception e) {}
+			}
+			if(inputStreamReader != null){
+				try {
+					inputStreamReader.close();
+				} catch (Exception e) {}
+			}
+		}
+		
+		return;
 	}
 
 }

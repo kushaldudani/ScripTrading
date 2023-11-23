@@ -49,7 +49,7 @@ public class MinuteData implements Serializable {
 	
 	@Override
 	public String toString() {
-		return "MinuteData [closePrice=" + closePrice + "]";
+		return "MinuteData [closePrice=" + closePrice + " volume=" + volume + "]";
 	}
 
 }

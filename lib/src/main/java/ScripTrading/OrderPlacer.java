@@ -3,6 +3,7 @@ package ScripTrading;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -19,129 +20,131 @@ public class OrderPlacer implements Runnable {
 	
 	private static String ORDER_URL = "https://localhost:5000/v1/api/iserver/account/U12784344/orders";
 	
+	private static String MODIFY_ORDER_URL = "https://localhost:5000/v1/api/iserver/account/U12784344/order/";
+	
 	public static void main(String[] args) {
-		
+		// 106064239
         //double limitPrice = 365.128;
-        String triggerTime = "10:30";
+        String triggerTime = "10:05";
+        String currentDate = "2023-11-22";
         int qty = 1;
-        String currentDate = "2023-10-23";
-        OrderPlacer op = new OrderPlacer(ORDER_URL, getOptionEnterJson(triggerTime, qty,  658738797, "LMT", 0.2), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
-				false, "0.2", "0.2", qty, 360);
-        String orderId = op.place();
-		System.out.println(orderId);
+        long optionContract = 664746778;
+        String cOID = optionContract+"QQQ"+triggerTime;
+        OrderPlacer op = new OrderPlacer(ORDER_URL, OrderUtil.getOptionEnterJson(qty,  optionContract, "LMT", 10.0, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
+				"10.0", 390, cOID, optionContract);
+        //String orderId = op.place();
+		//System.out.println(orderId);
+        String orderId = op.pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=submitted,pre_submitted,pending_submit", cOID);
+        System.out.println(orderId);
 	}
-	private static String getOptionEnterJson(String time, int qty, long contractid, String orderType, double limitPrice) {
-		
-		JSONArray orderArray = new JSONArray();
-		
-		JSONObject orderObject = new JSONObject();
-		orderObject.put("conid", contractid);
-		orderObject.put("secType", "OPT");
-		orderObject.put("cOID", contractid+"QQQ"+time);
-        orderObject.put("orderType", orderType);
-        orderObject.put("side", "SELL");
-        orderObject.put("ticker", "QQQ");
-        orderObject.put("tif", "DAY");
-        orderObject.put("quantity", qty);
-        if (orderType.equals("LMT")) {
-        	orderObject.put("price", limitPrice);
-        }
-        
-        orderArray.add(orderObject);
-        
-        JSONObject topObject = new JSONObject();
-        topObject.put("orders", orderArray);
-        
-        return topObject.toJSONString();
-	}
+	
 	// https://localhost:5000/v1/api/iserver/account/U12784344/orders?conid=320227571&secType=STK&cOID=QQQ12:15&orderType=LMT&side=SELL&ticker=QQQ&tif=DAY&quantity=100&price=365.128
-	private static String getPositionExitJson(String time, int qty, String orderType, double limitPrice) {
-		
-		JSONArray orderArray = new JSONArray();
-		
-		JSONObject orderObject = new JSONObject();
-		orderObject.put("conid", 320227571);
-		orderObject.put("secType", "STK");
-		orderObject.put("cOID", "QQQ"+time);
-        orderObject.put("orderType", orderType);
-        orderObject.put("side", "SELL");
-        orderObject.put("ticker", "QQQ");
-        orderObject.put("tif", "DAY");
-        orderObject.put("quantity", qty);
-        if (orderType.equals("LMT")) {
-        	orderObject.put("price", limitPrice);
-        }
-        
-        orderArray.add(orderObject);
-        
-        JSONObject topObject = new JSONObject();
-        topObject.put("orders", orderArray);
-        
-        return topObject.toJSONString();
-	}
+	
 	
 	private HttpClient client;
 	private String baseUrl;
 	private String orderJson;
 	private String currentDate;
 	private String writePath;
-	private boolean needPolling;
-	private String eInfoWhenSucceeded;
-	private String eInfoWhenFailed;
-	private int qty;
-	private double strikePrice;
+	private String eInfoToWrite;
+	private double strike;
+	private String cOID;
+	private long contract;
+	private String directory;
 
 	
-	public OrderPlacer(String baseUrl, String orderJson, String currentDate, String writePath, boolean needPolling,
-			String eInfoWhenSucceeded, String eInfoWhenFailed, int qty, double strikePrice) {
+	public OrderPlacer(String baseUrl, String orderJson, String currentDate, String writePath,
+			String eInfoToWrite, double strike, String cOID, long contract) {
 		RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
-		client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
-		
+		this.client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
 		this.baseUrl = baseUrl;
 		this.orderJson = orderJson;
 		this.currentDate = currentDate;
 		this.writePath = writePath;
-		this.needPolling = needPolling;
-		this.eInfoWhenSucceeded = eInfoWhenSucceeded;
-		this.eInfoWhenFailed = eInfoWhenFailed;
-		this.qty = qty;
-		this.strikePrice = strikePrice;
+		this.eInfoToWrite = eInfoToWrite;
+		this.strike = strike;
+		this.cOID = cOID;
+		this.contract = contract;
+		this.directory = (writePath.contains("/qqq/")) ? "qqq" : "qqq2";
 	}
 	
 	@Override
 	public void run() {
-		String orderId = place();
-		double executedPrice = 0;
-		if (!orderId.isEmpty()) {
-			String oIdStringToWrite = orderId;
-			String einfoToWrite = eInfoWhenSucceeded;
-			if (needPolling) {
+		TradeData tradedata = MetadataUtil.getInstance().readTradeData("/home/kushaldudani/" + directory +"/metadata.txt");
+		Trade existingTrade = MetadataUtil.getInstance().readTrade(currentDate, writePath);
+		String existingOrderId = "";
+		if (existingTrade != null && !existingTrade.getOrderId().equals("") && !existingTrade.getOrderId().equals("na")) {
+			if (!writePath.contains("optionenter.txt")) {
+				throw new IllegalStateException("Multiple order modification happening for trade other than optionEnter");
+			}
+			double infiniteLimit = 10.0;
+			double existingTradeLimit = Double.parseDouble(existingTrade.getExecutionInfo());
+			if (infiniteLimit != existingTradeLimit) {
+				// Requires existing Order modification
 				int attempts = 0;
-				while (executedPrice == 0 && attempts < 15) {
-					executedPrice = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
-					try {
-						Thread.sleep(5000);
-					} catch (Exception e1) {}
+				while (attempts < 3) {
+					OrderModifier om = new OrderModifier(MODIFY_ORDER_URL, 
+							             OrderUtil.getOptionEnterModifyJson(tradedata.getQty(), existingTrade.getContract(), "LMT", infiniteLimit),
+							             currentDate, writePath, ""+infiniteLimit, existingTrade.getStrike(), existingTrade.getOrderId(), existingTrade.getContract());
+					existingOrderId = om.modify();
+					if (!existingOrderId.isEmpty()) {
+						break;
+					} else {
+						try {
+							Thread.sleep(5000);
+						} catch (Exception e1) {}
+					}
+				
 					attempts++;
 				}
 			
-				if (executedPrice > 0) {
-					if (einfoToWrite == null) {
-						einfoToWrite = executedPrice+"";
-					}
-					MetadataUtil.getInstance().write(writePath, currentDate, einfoToWrite, oIdStringToWrite);
+				if (existingOrderId.isEmpty()) {
+					return;
+				} else {
+					MetadataUtil.getInstance().write(writePath, currentDate, infiniteLimit+"", existingOrderId, existingTrade.getStrike(), existingTrade.getContract());
 				}
 			} else {
-				MetadataUtil.getInstance().write(writePath, currentDate, einfoToWrite, oIdStringToWrite);
+				existingOrderId = existingTrade.getOrderId();
+			}
+		}
+		
+		// Poll the modified order to check for partial fills(assumption: For fully filled the pre step should already fail) to decide to place a new order or un-modify the existing order.
+		
+		String newOrderId = "";
+		int attempts = 0;
+		while (attempts < 3) {
+			RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
+			client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
+			newOrderId = place();
+			
+			if (!newOrderId.isEmpty()) {
+				break;
+			} else {
+				try {
+					Thread.sleep(5000);
+				} catch (Exception e1) {}
 				
-				if (strikePrice > 0) {
-					MetadataUtil.getInstance().writeTradeData(currentDate, strikePrice, qty);
+				newOrderId = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=submitted,pre_submitted,pending_submit,filled", cOID);
+				if (!newOrderId.isEmpty()) {
+					break;
 				}
 			}
+			
+			attempts++;
+		}
+		
+		if (!newOrderId.isEmpty()) {
+			MetadataUtil.getInstance().write(writePath, currentDate, eInfoToWrite, newOrderId, strike, contract);
+			if (writePath.contains("optionenter.txt")) {
+				String strikeenterordermapPath = "/home/kushaldudani/" + directory + "/strikeenterordermap.txt";
+				Map<Double, String> strikeToEnterOrderMap = MetadataUtil.getInstance().readStrikeEnterOrderMap(currentDate, strikeenterordermapPath);
+				strikeToEnterOrderMap.put(strike, newOrderId);
+				MetadataUtil.getInstance().writeStrikeEnterOrderMap(strikeenterordermapPath, currentDate, strikeToEnterOrderMap);
+			}
 		} else {
-			String oIdStringToWrite = "na";
-			String einfoToWrite = eInfoWhenFailed;//(needPolling == true) ? "failed" : limitPriceOrMkt;
-			MetadataUtil.getInstance().write(writePath, currentDate, einfoToWrite, oIdStringToWrite);
+			if (existingOrderId.isEmpty()) {
+				MetadataUtil.getInstance().write(writePath, currentDate, eInfoToWrite, "na", strike, contract);
+			}
 		}
 	}
 	
@@ -151,9 +154,9 @@ public class OrderPlacer implements Runnable {
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
 		String orderId = "";
-		long startTime = System.currentTimeMillis();
-		long currentTime = System.currentTimeMillis();
-		while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
+		//long startTime = System.currentTimeMillis();
+		//long currentTime = System.currentTimeMillis();
+		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = post(baseUrl, orderJson);
@@ -165,10 +168,7 @@ public class OrderPlacer implements Runnable {
 				LoggerUtil.getLogger().info("stockenter responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
-				break;
-			}
-			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(5000);
+				//break;
 			}
 			if(responseStatusCode == 500){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -178,7 +178,7 @@ public class OrderPlacer implements Runnable {
 					System.out.println(line);
 					LoggerUtil.getLogger().info(line);
 				}
-				break;
+				//break;
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -188,7 +188,6 @@ public class OrderPlacer implements Runnable {
 		        //Calendar calendar = Calendar.getInstance();
 				while ((line = bufferedReader.readLine()) != null) {
 					//if (line.contains("56.67")) {
-						System.out.println(line);
 						LoggerUtil.getLogger().info(line);
 					
 					JSONParser parser = new JSONParser(); 
@@ -214,11 +213,6 @@ public class OrderPlacer implements Runnable {
 		}catch(Exception e){
 			//e.printStackTrace();
 			LoggerUtil.getLogger().info(e.getMessage());
-			try {
-				Thread.sleep(5000);
-			} catch (Exception e1) {
-				//e1.printStackTrace();
-			}
 		}finally{
 			if(bufferedReader != null){
 				try {
@@ -231,8 +225,8 @@ public class OrderPlacer implements Runnable {
 				} catch (Exception e) {}
 			}
 		}
-		currentTime = System.currentTimeMillis();
-		}
+		//currentTime = System.currentTimeMillis();
+		//}
 		
 		return orderId;
 	}
@@ -242,6 +236,9 @@ public class OrderPlacer implements Runnable {
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
 		String orderId = "";
+		//long startTime = System.currentTimeMillis();
+		//long currentTime = System.currentTimeMillis();
+		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = post(baseUrl, postJson);
@@ -251,7 +248,7 @@ public class OrderPlacer implements Runnable {
 				System.out.println("confirmReply responseStatusCode 404 ");
 				LoggerUtil.getLogger().info("confirmReply responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
-				//Thread.sleep(5000);
+				//break;
 			}
 			//if (responseStatusCode == 429) { // Too many requests
 			//	Thread.sleep(5000);
@@ -264,6 +261,7 @@ public class OrderPlacer implements Runnable {
 					System.out.println(line);
 					LoggerUtil.getLogger().info(line);
 				}
+				//break;
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -273,7 +271,6 @@ public class OrderPlacer implements Runnable {
 		        //Calendar calendar = Calendar.getInstance();
 				while ((line = bufferedReader.readLine()) != null) {
 					//if (line.contains("56.67")) {
-						System.out.println(line);
 						LoggerUtil.getLogger().info(line);
 					JSONParser parser = new JSONParser(); 
 					JSONArray jsonArray = (JSONArray) parser.parse(line);
@@ -298,11 +295,6 @@ public class OrderPlacer implements Runnable {
 		}catch(Exception e){
 			//e.printStackTrace();
 			LoggerUtil.getLogger().info(e.getMessage());
-			try {
-				Thread.sleep(5000);
-			} catch (Exception e1) {
-				//e1.printStackTrace();
-			}
 		}finally{
 			if(bufferedReader != null){
 				try {
@@ -315,15 +307,17 @@ public class OrderPlacer implements Runnable {
 				} catch (Exception e) {}
 			}
 		}
+		//currentTime = System.currentTimeMillis();
+		//}
 		
 		return orderId;
 	}
 	
-	private double pollOrder(String baseUrl, String paramString, String orderId) {
+	private String pollOrder(String baseUrl, String paramString, String cOID) {
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
-		double executedPrice = 0;
+		String orderId = "";
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
@@ -353,16 +347,16 @@ public class OrderPlacer implements Runnable {
 		        //Calendar calendar = Calendar.getInstance();
 				while ((line = bufferedReader.readLine()) != null) {
 					//if (line.contains("56.67")) {
-						//System.out.println(line);
+					//	System.out.println(line);
 					JSONParser parser = new JSONParser(); 
 					JSONObject jsonObject = (JSONObject) parser.parse(line);
 					JSONArray jsonArray = (JSONArray) jsonObject.get("orders");
 					Iterator resultsIterator = jsonArray.iterator();
 					while(resultsIterator.hasNext()) {
 						JSONObject resultEntry = (JSONObject) resultsIterator.next();
-						String forderId = (Long) resultEntry.get("orderId") + "";
-						if (forderId.equals(orderId)) {
-							executedPrice =  Double.parseDouble((String) resultEntry.get("avgPrice"));
+						String fCOID = (String) resultEntry.get("order_ref");
+						if (cOID.equals(fCOID)) {
+							orderId =  (Long) resultEntry.get("orderId") + "";
 							break;
 						}
 					}
@@ -385,7 +379,7 @@ public class OrderPlacer implements Runnable {
 			}
 		}
 		
-		return executedPrice;
+		return orderId;
 	}
 	
 	private HttpResponse post(String baseUrl, String jsonString) throws Exception {

@@ -18,10 +18,13 @@ import org.json.simple.parser.JSONParser;
 public class OrderPoller implements Runnable {
 
 	private HttpClient client;
+	//private Map<Long, Double> conIdToStrike;
 	
 	public OrderPoller() {
 		RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
 		client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
+		
+		//this.conIdToStrike = conIdToStrike;
 	}
 	
 	@Override
@@ -34,7 +37,7 @@ public class OrderPoller implements Runnable {
 		
 		SimpleDateFormat shorttimeFormatter = new SimpleDateFormat("HH:mm");
 		String time = Util.findNearestFiveMinute(shorttimeFormatter.format(currentDate));
-		time = Util.timeNMinsAgo(time, 5);
+		//time = Util.timeNMinsAgo(time, 5);
 		
 		while (time.compareTo("13:02") <= 0) {
 			try {
@@ -44,16 +47,49 @@ public class OrderPoller implements Runnable {
 				calendar.setTimeInMillis(System.currentTimeMillis());
 				currentDate = calendar.getTime();
 				time = Util.findNearestFiveMinute(shorttimeFormatter.format(currentDate));
-				time = Util.timeNMinsAgo(time, 5);
+				//time = Util.timeNMinsAgo(time, 5);
 				
 				Trade optionEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/optionenter.txt");
-				TradeConfirmation tradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString);
+				TradeConfirmation optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/optiontradeconfirmation.txt");
 				if (optionEnterTrade != null && !optionEnterTrade.getOrderId().equals("") && !optionEnterTrade.getOrderId().equals("na")
-						&& (tradeconfirmation == null || tradeconfirmation.getHasOrderFilled() == false)) {
+						&& (optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)) {
 					String orderId = optionEnterTrade.getOrderId();
-					double executedPrice = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
-					if (executedPrice > 0) {
-						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true);
+					PollResult pollresult = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
+					if (pollresult != null && pollresult.executedPrice > 0) {
+						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, optionEnterTrade.getStrike(), "/home/kushaldudani/qqq/optiontradeconfirmation.txt");
+					}
+				}
+				
+				Trade stockEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/positionenter.txt");
+				TradeConfirmation stockradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/stocktradeconfirmation.txt");
+				if (stockEnterTrade != null && !stockEnterTrade.getOrderId().equals("") && !stockEnterTrade.getOrderId().equals("na")
+						&& (stockradeconfirmation == null || stockradeconfirmation.getHasOrderFilled() == false)) {
+					String orderId = stockEnterTrade.getOrderId();
+					PollResult pollresult = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
+					if (pollresult != null && pollresult.executedPrice > 0) {
+						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, 0, "/home/kushaldudani/qqq/stocktradeconfirmation.txt");
+					}
+				}
+				
+				optionEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq2/optionenter.txt");
+				optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/optiontradeconfirmation.txt");
+				if (optionEnterTrade != null && !optionEnterTrade.getOrderId().equals("") && !optionEnterTrade.getOrderId().equals("na")
+						&& (optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)) {
+					String orderId = optionEnterTrade.getOrderId();
+					PollResult pollresult = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
+					if (pollresult != null && pollresult.executedPrice > 0) {
+						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, optionEnterTrade.getStrike(), "/home/kushaldudani/qqq2/optiontradeconfirmation.txt");
+					}
+				}
+				
+				stockEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq2/positionenter.txt");
+				stockradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/stocktradeconfirmation.txt");
+				if (stockEnterTrade != null && !stockEnterTrade.getOrderId().equals("") && !stockEnterTrade.getOrderId().equals("na")
+						&& (stockradeconfirmation == null || stockradeconfirmation.getHasOrderFilled() == false)) {
+					String orderId = stockEnterTrade.getOrderId();
+					PollResult pollresult = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
+					if (pollresult != null && pollresult.executedPrice > 0) {
+						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, 0, "/home/kushaldudani/qqq2/stocktradeconfirmation.txt");
 					}
 				}
 			} catch (Exception e) {
@@ -63,11 +99,11 @@ public class OrderPoller implements Runnable {
 		
 	}
 	
-	private double pollOrder(String baseUrl, String paramString, String orderId) {
+	private PollResult pollOrder(String baseUrl, String paramString, String orderId) {
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
-		double executedPrice = 0;
+		PollResult pollresult = null;
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
@@ -106,7 +142,9 @@ public class OrderPoller implements Runnable {
 						JSONObject resultEntry = (JSONObject) resultsIterator.next();
 						String forderId = (Long) resultEntry.get("orderId") + "";
 						if (forderId.equals(orderId)) {
-							executedPrice =  Double.parseDouble((String) resultEntry.get("avgPrice"));
+							double executedPrice =  Double.parseDouble((String) resultEntry.get("avgPrice"));
+							long conid = (Long) resultEntry.get("conid");
+							pollresult = new PollResult(executedPrice, conid);
 							break;
 						}
 					}
@@ -129,7 +167,17 @@ public class OrderPoller implements Runnable {
 			}
 		}
 		
-		return executedPrice;
+		return pollresult;
 	}
 
+	
+	static class PollResult {
+		double executedPrice;
+		long conid;
+		
+		PollResult(double executedPrice, long conid) {
+			this.executedPrice = executedPrice;
+			this.conid = conid;
+		}
+	}
 }

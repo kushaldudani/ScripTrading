@@ -9,7 +9,7 @@ import java.util.Map;
 
 import ScripTrading.DayData;
 import ScripTrading.GraphSegment;
-import ScripTrading.IGraphSegment;
+import ScripTrading.MinuteData;
 import ScripTrading.Util;
 import playground.GSInterpretation.GSInterpretationType;
 
@@ -17,58 +17,73 @@ public class VolumeGraphPatternEntry {
 	
 	public static String startTime = "07:15";
 	public static String closeTime = "12:35";
-	public static String midTime = "11:00";
-	public static String midMidTime = "09:00";
+	public static String midTime = "11:30";
+	//public static String midMidTime = "09:00";
 	
 	public static String shortExit(DayData dayData, double ninetyPercentileBarChange, String enterTime, double enterPrice, String currentDateString,
 			Map<String, Double> bookedProfitMap, String enterString, double strike, String strikeTime) {
 		List<GraphSegment> graphSegments = new ArrayList<>();
 		Map<String, Double> priceWithTime = new LinkedHashMap<>();
-		LinkedList<Double> closePricesQueue = new LinkedList<>();
+		int cummulativeVolumeSignal = 0;
+		LinkedList<String> volumeSignalQueue = new LinkedList<>();
+		//LinkedList<Double> closePricesQueue = new LinkedList<>();
 		int trendViaGS = 0;
 		double pThreshold = 0;
 		for (String time : dayData.getMinuteDataMap().keySet()) {
+			if (trendViaGS == -1 && pThreshold != 0) {
+				if ( (((enterPrice - dayData.getMinuteDataMap().get(time).getLowPrice()) / enterPrice) * 100) >= pThreshold) {
+					bookedProfitMap.put(currentDateString + "  " + enterTime + "  " + time + "  " + enterString + "  " + strike + "  " + strikeTime, pThreshold);
+					return time;
+				}
+			}
+			
 			GSUtil.calculateGraphSegments(graphSegments, dayData.getMinuteDataMap().get(time).getVolume(),
 					dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),
 					dayData.getMinuteDataMap().get(time).getHighPrice(), dayData.getMinuteDataMap().get(time).getLowPrice(),
 					time, ninetyPercentileBarChange, priceWithTime);
 			if (time.compareTo(enterTime) > 0 && time.compareTo(closeTime) < 0) {
 				GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
-				if (lastGS.identifier.equals("u")) {
-					if (closePricesQueue.size() > 0) {
-						if (closePricesQueue.peekLast() != lastGS.endPrice) {
-							closePricesQueue.add(lastGS.endPrice);
-						}
-					} else {
-						closePricesQueue.add(lastGS.endPrice);
-					}
+				
+				double currentVol = dayData.getMinuteDataMap().get(time).getVolume();
+				double sumVolume = 0; int cntr = 0;
+				String timeCntr = Util.timeNMinsAgo(time, 45);
+				while (timeCntr.compareTo(time) < 0) {
+					double volm = dayData.getMinuteDataMap().get(timeCntr).getVolume();
+					sumVolume = sumVolume + volm;
+					cntr++;
+					timeCntr = Util.timeNMinsAgo(timeCntr, -5);
+				}
+				double avgVol = (sumVolume / cntr);
+				
+				double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+				double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
+				//System.out.println("In exit " + time + "  " + avgVol + "  " + currentVol);
+				
+				if (currentVol > 1.25 * avgVol && closeAtTime > openAtTime) {
+					cummulativeVolumeSignal++;
+				} else {
+					cummulativeVolumeSignal = 0;
 				}
 				
-				/*System.out.println("In exit " + time);
-				for (GraphSegment gs : graphSegments) {
-					System.out.println(gs);
-				}
-				System.out.println(" enterPrice " + enterPrice + " closePriceQueue " + closePricesQueue);
-				System.out.println(trendViaGS);
-				System.out.println("pThreshold " + pThreshold);
-				System.out.println("Low price " + dayData.getMinuteDataMap().get(time).getLowPrice() + " lowest Pcnt " + ((enterPrice - dayData.getMinuteDataMap().get(time).getLowPrice()) / enterPrice) * 100);
-				*/
-				if (trendViaGS == -1 && pThreshold != 0) {
-					//if ( (((enterPrice - dayData.getMinuteDataMap().get(time).getLowPrice()) / enterPrice) * 100) >= pThreshold) {
-					//	bookedProfitMap.put(currentDateString + "  " + enterTime + "  " + time + "  " + enterString + "  " + strike + "  " + strikeTime, pThreshold);
-					//	return time;
-					//}
+				if ( cummulativeVolumeSignal >= 4 ) {
+					volumeSignalQueue.add(time);
 				}
 				
-				if ((lastGS.identifier.equals("u") && trendViaGS == 1) || trendViaGS == -1) {
+				if ((lastGS.identifier.equals("u") && closeAtTime >= lastGS.endPrice 
+						&& (currentVol > 2.25 * avgVol || (volumeSignalQueue.size() > 0 && Util.diffTime(volumeSignalQueue.peekLast(), time) <= 10)) ) 
+						|| trendViaGS == -1) {
+				//if ((lastGS.identifier.equals("u") && trendViaGS == 1) || trendViaGS == -1) {
 					trendViaGS = -1;
 					double currentPL = 0;
-						currentPL = (((enterPrice - closePricesQueue.peekLast()) / enterPrice) * 100);
-					double constantLimitFactor = (time.compareTo(midTime) > 0) ? 0.5 : 0.5;
+						//currentPL = (((enterPrice - closePricesQueue.peekLast()) / enterPrice) * 100);
+						currentPL = (((enterPrice - closeAtTime) / enterPrice) * 100);
+						
+					double constantLimitFactor = 0;//(time.compareTo(midTime) > 0) ? 0.5 : 0.5;
 					pThreshold = currentPL + constantLimitFactor;
 					
 				}
-				if ((Util.diffTime(enterTime, time) >= 75 || lastGS.identifier.equals("d")) && trendViaGS == 0) {
+				if ((Util.diffTime(enterTime, time) >= 5) && trendViaGS == 0) {
+				//if ((Util.diffTime(enterTime, time) >= 75 || lastGS.identifier.equals("d")) && trendViaGS == 0) {
 					trendViaGS = 1;
 				}
 			}
@@ -83,9 +98,11 @@ public class VolumeGraphPatternEntry {
 			Map<String, Double> bookedProfitMap, String enterString, double strike, String strikeTime) {
 		List<GraphSegment> graphSegments = new ArrayList<>();
 		Map<String, Double> priceWithTime = new LinkedHashMap<>();
-		LinkedList<Double> closePricesQueue = new LinkedList<>();
+		//LinkedList<Double> closePricesQueue = new LinkedList<>();
 		int trendViaGS = 0;
 		double pThreshold = 0;
+		int cummulativeVolumeSignal = 0;
+		LinkedList<String> volumeSignalQueue = new LinkedList<>();
 		/*List<Double> profitLevels = new ArrayList<>();
 		profitLevels.add(profitThreshold);
 		profitLevels.add(0.0);
@@ -94,19 +111,27 @@ public class VolumeGraphPatternEntry {
 		//profitLevels.add(-2 * ninetyPercentileBarChange);
 		//double profitThreshold = (enterTime.compareTo(midMidTime) > 0) ? ninetyPercentileBarChange * volumeFactor * 0.75 : ninetyPercentileBarChange * volumeFactor;
 		//double profitThreshold = ninetyPercentileBarChange / 2;
-		//double dayHigh = 0;
+		double dayHigh = 0;
 		for (String time : dayData.getMinuteDataMap().keySet()) {
-			//if (dayData.getMinuteDataMap().get(time).getClosePrice() > dayHigh) {
-			//	dayHigh = dayData.getMinuteDataMap().get(time).getClosePrice() ;
-			//}
-			//double closePriceAvg = (closePricesQueue.size() > 0) ? findAvg(closePricesQueue) : 0;
+			if (trendViaGS == -1 && pThreshold != 0) {
+				if ( (((dayData.getMinuteDataMap().get(time).getHighPrice() - enterPrice) / enterPrice) * 100) >= pThreshold) {
+					bookedProfitMap.put(currentDateString + "  " + enterTime + "  " + time + "  " + enterString + "  " + strike + "  " + strikeTime, pThreshold);
+					return time;
+				}
+			}
+			
+			if (dayData.getMinuteDataMap().get(time).getClosePrice() > dayHigh) {
+				dayHigh = dayData.getMinuteDataMap().get(time).getClosePrice();
+			}
+			
 			GSUtil.calculateGraphSegments(graphSegments, dayData.getMinuteDataMap().get(time).getVolume(),
 					dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),
 					dayData.getMinuteDataMap().get(time).getHighPrice(), dayData.getMinuteDataMap().get(time).getLowPrice(),
 					time, ninetyPercentileBarChange, priceWithTime);
+			
 			if (time.compareTo(enterTime) > 0 && time.compareTo(closeTime) < 0) {
-				GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
-				if (lastGS.identifier.equals("d")) {
+				
+				/*if (lastGS.identifier.equals("d")) {
 					if (closePricesQueue.size() > 0) {
 						if (closePricesQueue.peekLast() != lastGS.endPrice) {
 							closePricesQueue.add(lastGS.endPrice);
@@ -114,32 +139,50 @@ public class VolumeGraphPatternEntry {
 					} else {
 						closePricesQueue.add(lastGS.endPrice);
 					}
+				}*/
+				
+				//for (GraphSegment gs : graphSegments) {
+				//	System.out.println(gs);
+				//}
+				//System.out.println(" enterPrice " + enterPrice + " closePriceQueue " + closePricesQueue);
+				//System.out.println(trendViaGS);
+				//System.out.println("pThreshold " + pThreshold);
+				//System.out.println("high price " + dayData.getMinuteDataMap().get(time).getHighPrice() + " highest Pcnt " + ((dayData.getMinuteDataMap().get(time).getHighPrice() - enterPrice) / enterPrice) * 100);
+				String timeCnr = Util.timeNMinsAgo(time, 15);
+				if (timeCnr.compareTo("08:00") < 0) {
+					timeCnr = "08:00";
+				}
+				while (timeCnr.compareTo(time) <= 0) {
+					double currentVol = dayData.getMinuteDataMap().get(timeCnr).getVolume();
+					double sumVolume = 0; int cntr = 0;
+					String timeStart = Util.timeNMinsAgo(timeCnr, 45);
+					while (timeStart.compareTo(timeCnr) < 0) {
+						sumVolume = sumVolume + dayData.getMinuteDataMap().get(timeStart).getVolume();
+						cntr++;
+						timeStart = Util.timeNMinsAgo(timeStart, -5);
+					}
+					double avgVol = (sumVolume / cntr);
+				    if (currentVol > 2 * avgVol) {
+				    	volumeSignalQueue.add(timeCnr);
+				    }
+				    timeCnr = Util.timeNMinsAgo(timeCnr, -5);
 				}
 				
-				/*System.out.println("In exit " + time);
-				for (GraphSegment gs : graphSegments) {
-					System.out.println(gs);
-				}
-				System.out.println(" enterPrice " + enterPrice + " closePriceQueue " + closePricesQueue);
-				System.out.println(trendViaGS);
-				System.out.println("pThreshold " + pThreshold);
-				System.out.println("high price " + dayData.getMinuteDataMap().get(time).getHighPrice() + " highest Pcnt " + ((dayData.getMinuteDataMap().get(time).getHighPrice() - enterPrice) / enterPrice) * 100);
-				*/
-				if (trendViaGS == -1 && pThreshold != 0) {
-					//if ( (((dayData.getMinuteDataMap().get(time).getHighPrice() - enterPrice) / enterPrice) * 100) >= pThreshold) {
-					//	bookedProfitMap.put(currentDateString + "  " + enterTime + "  " + time + "  " + enterString + "  " + strike + "  " + strikeTime, pThreshold);
-					//	return time;
-					//}
-				}
-				
-				if ((lastGS.identifier.equals("d") && trendViaGS == 1) || trendViaGS == -1) {
+				double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+				GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
+				//if ( ( (((closeAtTime - enterPrice) / enterPrice) * 100) < -0.6 ) 
+				//		|| trendViaGS == -1) {
+				if ( (lastGS.identifier.equals("d") && closeAtTime <= lastGS.endPrice && (((lastGS.startPrice - lastGS.endPrice) / lastGS.startPrice) * 100) > 0.5
+						&& (volumeSignalQueue.size() > 0) 
+					 ) 
+						|| trendViaGS == -1) {
 				//if (!lastGS.identifier.equals("u")) {
 					trendViaGS = -1;
 					double currentPL = 0;
 					//if (closePriceAvg > 0) {
-						currentPL = (((closePricesQueue.peekLast() - enterPrice) / enterPrice) * 100);
+					//	currentPL = (((closePricesQueue.peekLast() - enterPrice) / enterPrice) * 100);
 					//} else {
-					//	currentPL = (((dayData.getMinuteDataMap().get(time).getClosePrice() - enterPrice) / enterPrice) * 100);
+						currentPL = (((closeAtTime - enterPrice) / enterPrice) * 100);
 					//}
 					/*int returnIndex = 0;
 					for (int index = 0; index < profitLevels.size(); index++) {
@@ -147,7 +190,7 @@ public class VolumeGraphPatternEntry {
 							returnIndex = index - 1;
 						}
 					}*/
-					double constantLimitFactor = (time.compareTo(midTime) > 0) ? 0.5 : 0.5;
+					double constantLimitFactor = 0;//(time.compareTo(midTime) > 0) ? 0.5 : 0.5;
 					pThreshold = currentPL + constantLimitFactor;//profitLevels.get(returnIndex);
 					
 					//if (dayData.getMinuteDataMap().get(time).getClosePrice() > enterPrice && lastGS.identifier.equals("d")) {
@@ -158,7 +201,8 @@ public class VolumeGraphPatternEntry {
 				//}
 				// Util.diffTime(enterTime, time) >= 75
 				// 
-				if ((Util.diffTime(enterTime, time) >= 75 || lastGS.identifier.equals("u")) && trendViaGS == 0) {
+				//if ((Util.diffTime(enterTime, time) >= 75 || lastGS.identifier.equals("u")) && trendViaGS == 0) {
+				if ((Util.diffTime(enterTime, time) >= 5) && trendViaGS == 0) {
 					trendViaGS = 1;
 				}
 				/*if (lastGS.identifier.equals("c") && (((dayData.getMinuteDataMap().get(time).getClosePrice() - enterPrice) / enterPrice) * 100) < (ninetyPercentileBarChange / 3)) {
@@ -186,10 +230,7 @@ public class VolumeGraphPatternEntry {
 					break;
 				}*/
 			}
-			//closePricesQueue.add(dayData.getMinuteDataMap().get(time).getClosePrice());
-			//if (closePricesQueue.size() > 6) {
-			//	closePricesQueue.poll();
-			//}
+			
 		}
 		
 		double prof = (((dayData.getMinuteDataMap().get(closeTime).getClosePrice() - enterPrice) / enterPrice) * 100);
@@ -198,7 +239,17 @@ public class VolumeGraphPatternEntry {
 	}
 	
 	
-	public static String bullEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> callVolumeSignal, double strike) {
+	public static String bullEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> callVolumeSignal, 
+			LinkedList<String> altCallVolumeSignal, double strike,
+			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike) {
+		LinkedList<String> optionVolumeSignalToUse = null;
+		if (strike == alternateStrike) {
+			optionVolumeSignalToUse = callVolumeSignal;
+		} else if (strike == 0) {
+			optionVolumeSignalToUse = altCallVolumeSignal;
+		} else {
+			optionVolumeSignalToUse = (strike > alternateStrike) ? altCallVolumeSignal : callVolumeSignal;
+		}
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -216,20 +267,24 @@ public class VolumeGraphPatternEntry {
 			double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike);
-			System.out.println("In entry " + time + " Strike " + strike);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altCallVolumeSignal);
+			/*System.out.println("In entry " + time + " Strike " + strike);
+			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(callVolumeSignal);
 			for (GraphSegment gs : graphSegments) {
 				System.out.println(gs);
-			}
-			List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
-			for (IGraphSegment igs : interpretedGSs) {
-				System.out.println(igs);
-			}
+			}*/
+			//List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
+			//for (IGraphSegment igs : interpretedGSs) {
+			//	System.out.println(igs);
+			//}
 			
 			if (
-					gsInterpretation.getCurrentLongState() == GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES &&
-					callVolumeSignal.size() > 0 && Util.diffTime(callVolumeSignal.peekLast(), time) <= 45
+					gsInterpretation.getCurrentLongState() == GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES //&&
+					//( (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 45)
+							//(callVolumeSignal.size() > 0 && Util.diffTime(callVolumeSignal.peekLast(), time) <= 45)
+							//|| (strike == 0 && altCallVolumeSignal.size() > 0 && Util.diffTime(altCallVolumeSignal.peekLast(), time) <= 45) 
+						//	)
 					//gsInterpretation.getCurrentLongState() == GSInterpretationType.PULLBACK_LONG_IN_EARLY_STAGES// ||
 					//gsInterpretation.getCurrentState() == GSInterpretationType.UNKNOWN_LONG_IN_EARLY_STAGES
 				) {
@@ -253,7 +308,16 @@ public class VolumeGraphPatternEntry {
 		return null;
 	}
 	
-	public static String bearEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> putVolumeSignal, double strike) {
+	public static String bearEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> putVolumeSignal, LinkedList<String> altPutVolumeSignal, double strike,
+			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike) {
+		LinkedList<String> optionVolumeSignalToUse = null;
+		if (strike == alternateStrike) {
+			optionVolumeSignalToUse = putVolumeSignal;
+		} else if (strike == 0) {
+			optionVolumeSignalToUse = altPutVolumeSignal;
+		} else {
+			optionVolumeSignalToUse = (strike < alternateStrike) ? altPutVolumeSignal : putVolumeSignal;
+		}
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -271,20 +335,24 @@ public class VolumeGraphPatternEntry {
 			double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike);
-			System.out.println("In entry " + time + " Strike " + strike);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse);
+			/*System.out.println("In entry " + time + " Strike " + strike);
+			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(putVolumeSignal);
 			for (GraphSegment gs : graphSegments) {
 				System.out.println(gs);
-			}
-			List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
-			for (IGraphSegment igs : interpretedGSs) {
-				System.out.println(igs);
-			}
+			}*/
+			//List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
+			//for (IGraphSegment igs : interpretedGSs) {
+			//	System.out.println(igs);
+			//}
 			
 			if (
-					gsInterpretation.getCurrentShortState() == GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES &&
-					putVolumeSignal.size() > 0 && Util.diffTime(putVolumeSignal.peekLast(), time) <= 45
+					gsInterpretation.getCurrentShortState() == GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES //&&
+					//( (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 45)
+							//(putVolumeSignal.size() > 0 && Util.diffTime(putVolumeSignal.peekLast(), time) <= 45) 
+							//|| (strike == 0 && altPutVolumeSignal.size() > 0 && Util.diffTime(altPutVolumeSignal.peekLast(), time) <= 45) 
+						//	)
 					//gsInterpretation.getCurrentShortState() == GSInterpretationType.PULLBACK_SHORT_IN_EARLY_STAGES// ||
 					//gsInterpretation.getCurrentState() == GSInterpretationType.UNKNOWN_LONG_IN_EARLY_STAGES
 				) {
