@@ -135,8 +135,7 @@ public class SingleDayQQQCallTester {
 			for (String time : dayData.getMinuteDataMap().keySet()) {
 				if (time.compareTo(optionSellingTime) > 0 && time.compareTo(closeTime) < 0) {
 					if (!dayData.getCallDataMap().get(strikePrice).containsKey(time)) {
-						closedPriceTime = time;
-						break;
+						continue;
 					}
 					double currrentCallPriceAtStrike = dayData.getCallDataMap().get(strikePrice).get(time).getLowPrice();
 					double currentProfitPercent = ((currrentCallPriceAtStrike / optionSellingTimePrice) * 100);

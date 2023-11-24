@@ -14,6 +14,45 @@ import ScripTrading.Util;
 
 public class SingleDayQQQShortTester {
 	
+	private static double getTargetedStrike(DayData dayData, String time) {
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
+		double percentHigherFactor = (time.compareTo("08:45") <= 0) ? 0.009 : 0.009;
+		double priceLevelToPlaceOrder = (((closeAtTime - openAtTime) / openAtTime) * 100 > 0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
+		double targetedStrikePrice = ((int) (priceLevelToPlaceOrder - percentHigherFactor * priceLevelToPlaceOrder)) + 1;
+		
+		return targetedStrikePrice;
+	}
+	
+	private static void calculateOptionVolumeSig(LinkedList<Double> alternateOptionQueue, LinkedList<String> altVolumeSignal, double altStrike, String time, DayData dayData) {
+		String timeCnr = "07:20";
+		while (timeCnr.compareTo(time) <= 0) {
+			double alternateoptionVolumeAtTime = 0;
+			if (dayData.getPutDataMap().get(altStrike).containsKey(timeCnr)) {
+				alternateoptionVolumeAtTime = dayData.getPutDataMap().get(altStrike).get(timeCnr).getVolume();
+			}
+			
+			double alternateCallAvgVolume = 0;
+			Iterator<Double> queueIterator = alternateOptionQueue.iterator();
+			int queueCount = 0; int maxCount = 9;
+			while (queueCount < maxCount && queueIterator.hasNext()) {
+				alternateCallAvgVolume = alternateCallAvgVolume + queueIterator.next();
+				queueCount++;
+			}
+			alternateCallAvgVolume = (queueCount > 0) ? (alternateCallAvgVolume / queueCount) : 0;
+			
+			if (alternateCallAvgVolume > 0 && alternateoptionVolumeAtTime > (3 * alternateCallAvgVolume) ) {
+				altVolumeSignal.add(timeCnr);
+			}
+			
+			if (alternateoptionVolumeAtTime > 0) {
+				alternateOptionQueue.addFirst(alternateoptionVolumeAtTime);
+			}
+			
+			timeCnr = Util.timeNMinsAgo(timeCnr, -5);
+		}
+	}
+	
 	public static void main(String[] args) throws Exception {
 		Downloader downloader = new Downloader();
 		int increment = 1;
@@ -47,55 +86,41 @@ public class SingleDayQQQShortTester {
 				double shortEnterPrice = 0.0; String shortEnterTime = null; String shortEnterString = "";
 				int noOfEntriesForBear = 0;
 				putVolumeSignal = new LinkedList<>();
-				LinkedList<String> alternatePutVolumeSignal = new LinkedList<>();
-				LinkedList<Double> putOptionQueue = new LinkedList<>();
-				LinkedList<Double> alternatePutOptionQueue = new LinkedList<>();
+				//LinkedList<String> alternatePutVolumeSignal = new LinkedList<>();
+				//LinkedList<Double> putOptionQueue = new LinkedList<>();
+				//LinkedList<Double> alternatePutOptionQueue = new LinkedList<>();
 				String strikeTime = null; double strike = 0; // Need to be updated with every run
 				double avgVix = 0; // Need to be fixed
 				Map<String, MinuteData> rawVix = null; // Need to be fixed
-				double alternateStrike = ((int) (dayData.getMinuteDataMap().get("07:20").getClosePrice() - 0.009 * dayData.getMinuteDataMap().get("07:20").getClosePrice())) + 1;
 				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {
-					//double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+					double alternateStrike = getTargetedStrike(dayData, time);
 					//String key = currentDateString + "  " + time;
-					double putVolume = 0; double putAvgVolume = 0;
-					double alternateoptionVolumeAtTime = 0; double alternatePutAvgVolume = 0;
-					if (time.compareTo("07:20") >= 0) {
+					LinkedList<String> altPutVolumeSignal = new LinkedList<>();
+					if (time.compareTo("07:20") >= 0 && time.compareTo("08:55") <= 0) {
+						LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
+						downloadOptionData(alternateStrike - 1, currentDateString, dayData, downloader);
+						calculateOptionVolumeSig(alternateCallOptionQueue, altPutVolumeSignal, alternateStrike - 1, time, dayData);
+						//System.out.println("alternateCallOptionQueue " + alternateCallOptionQueue);
+						//System.out.println("alternateStrike " + (alternateStrike - 1));
+						
+						alternateCallOptionQueue = new LinkedList<>();
 						downloadOptionData(alternateStrike, currentDateString, dayData, downloader);
-						if (dayData.getPutDataMap().get(alternateStrike).containsKey(time)) {
-							alternateoptionVolumeAtTime = dayData.getPutDataMap().get(alternateStrike).get(time).getVolume();
-						}
+						calculateOptionVolumeSig(alternateCallOptionQueue, altPutVolumeSignal, alternateStrike, time, dayData);
+						//System.out.println("alternateCallOptionQueue " + alternateCallOptionQueue);
+						//System.out.println("alternateStrike " + alternateStrike);
 						
-						alternatePutAvgVolume = (alternatePutOptionQueue.size() > 0) ? findAvg(alternatePutOptionQueue) : 0;
-						if (alternatePutAvgVolume > 0 && alternateoptionVolumeAtTime > (2.8 * alternatePutAvgVolume) ) {
-							alternatePutVolumeSignal.add(time);
-						}
-						if (alternateoptionVolumeAtTime > 0) {
-							alternatePutOptionQueue.add(alternateoptionVolumeAtTime);
-							if (alternatePutOptionQueue.size() > 9) {
-								alternatePutOptionQueue.poll();
-							}
-						}
-					}
-					if (strikeTime != null && time.compareTo(strikeTime) >= 0) {
-						downloadOptionData(strike, currentDateString, dayData, downloader);
-						if (dayData.getPutDataMap().get(strike).containsKey(time)) {
-							putVolume = dayData.getPutDataMap().get(strike).get(time).getVolume();
-						}
+						alternateCallOptionQueue = new LinkedList<>();
+						downloadOptionData(alternateStrike + 1, currentDateString, dayData, downloader);
+						calculateOptionVolumeSig(alternateCallOptionQueue, altPutVolumeSignal, alternateStrike + 1, time, dayData);
+						//System.out.println("alternateCallOptionQueue " + alternateCallOptionQueue);
+						//System.out.println("alternateStrike " + (alternateStrike + 1));
 						
-						putAvgVolume = (putOptionQueue.size() > 0) ? findAvg(putOptionQueue) : 0;
-						if (putAvgVolume > 0 && putVolume > (2.8 * putAvgVolume) ) {
-							putVolumeSignal.add(time);
-						}
-						if (putVolume > 0) {
-							putOptionQueue.add(putVolume);
-							if (putOptionQueue.size() > 9) {
-								putOptionQueue.poll();
-							}
-						}
+						altPutVolumeSignal.sort(String::compareToIgnoreCase);
+						//System.out.println("altCallVolumeSignal " + altCallVolumeSignal);
 					}
 					
 					// Short Enter
-					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, alternatePutVolumeSignal, strike, avgVix, rawVix, alternateStrike);
+					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, altPutVolumeSignal, strike, avgVix, rawVix, alternateStrike);
 					if (returnedTime != null
 							&& shortEnterPrice == 0
 							&& noOfEntriesForBear == 0) {

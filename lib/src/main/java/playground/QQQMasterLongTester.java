@@ -144,7 +144,7 @@ public class QQQMasterLongTester {
 				double longEnterPrice = 0.0; String longEnterTime = null; String longEnterString = "";
 				int noOfEntriesForBull = 0;
 				callVolumeSignal = new LinkedList<>();
-				LinkedList<Double> callOptionQueue = new LinkedList<>();
+				//LinkedList<Double> callOptionQueue = new LinkedList<>();
 				//LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
 				String strikeTime = null; double strike = 0;
 				double avgVix = vixAvgMap.get(currentDateString);
@@ -154,7 +154,7 @@ public class QQQMasterLongTester {
 					//double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 					String key = currentDateString + "  " + time;
 					//System.out.println(time);
-					double optionVolumeAtTime = 0; double callAvgVolume = 0;
+					//double optionVolumeAtTime = 0; double callAvgVolume = 0;
 					if (allCallCasesStrike.containsKey(key)) {
 						if (strikeTime == null) {
 							strikeTime = time;
@@ -164,7 +164,7 @@ public class QQQMasterLongTester {
 						}
 					}
 					LinkedList<String> altCallVolumeSignal = new LinkedList<>();
-					if (time.compareTo("07:20") >= 0) {
+					if (time.compareTo("07:20") >= 0 && time.compareTo("08:55") <= 0) {
 						LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
 						downloadedMoreData = downloadOptionData(alternateStrike - 1, currentDateString, dayData, downloader, downloadedMoreData);
 						calculateOptionVolumeSig(alternateCallOptionQueue, altCallVolumeSignal, alternateStrike - 1, time, dayData);
@@ -185,33 +185,6 @@ public class QQQMasterLongTester {
 						
 						altCallVolumeSignal.sort(String::compareToIgnoreCase);
 						//System.out.println("altCallVolumeSignal " + altCallVolumeSignal);
-					}
-					if (strikeTime != null && strike > 0) {
-						downloadedMoreData = downloadOptionData(strike, currentDateString, dayData, downloader, downloadedMoreData);
-						if (dayData.getCallDataMap().get(strike).containsKey(time)) {
-							optionVolumeAtTime = dayData.getCallDataMap().get(strike).get(time).getVolume();
-						}
-						
-						//callAvgVolume = (callOptionQueue.size() > 0) ? findAvg(callOptionQueue) : 0;
-						//
-						callAvgVolume = 0;
-						Iterator<Double> queueIterator = callOptionQueue.iterator();
-						int queueCount = 0; int maxCount = 9;
-						while (queueCount < maxCount && queueIterator.hasNext()) {
-							callAvgVolume = callAvgVolume + queueIterator.next();
-							queueCount++;
-						}
-						callAvgVolume = (queueCount > 0) ? (callAvgVolume / queueCount) : 0;
-						//
-						if (callAvgVolume > 0 && optionVolumeAtTime > (2.8 * callAvgVolume) ) {
-							callVolumeSignal.add(time);
-						}
-						if (optionVolumeAtTime > 0) {
-							callOptionQueue.addFirst(optionVolumeAtTime);
-							//if (callOptionQueue.size() > 9) {
-							//	callOptionQueue.poll();
-							//}
-						}
 					}
 					
 					//System.out.println("callOptionQueue " + callOptionQueue);
@@ -369,39 +342,34 @@ public class QQQMasterLongTester {
 
 /*
  
-2022-12-02  09:10  12:35  bullEntry  292.0  07:30  0.12342763442249285
-2022-12-08  10:35  12:35  bullEntry  286.0  08:00  -0.2636018557570645
 2022-12-09  07:55  10:15  bullEntry  285.0  07:20  -0.487224251787778
 2022-12-12  08:05  12:35  bullEntry  284.0  07:20  0.7885431400282747
 2022-12-21  07:55  12:35  bullEntry  0.0  null  -0.06938611547310293
 2022-12-29  07:40  12:35  bullEntry  0.0  null  0.27974391228432666
 2023-01-04  08:30  10:00  bullEntry  266.0  07:20  -0.29247989200743557
-2023-01-05  10:30  12:20  bullEntry  264.0  07:25  -0.5192903663861063
 2023-01-06  07:45  12:35  bullEntry  0.0  null  1.5413222003684943
 2023-01-09  07:40  10:50  bullEntry  275.0  07:30  -0.6161090637306803
 2023-01-10  11:10  12:35  bullEntry  272.0  07:35  -0.09365359189069909
-2023-01-11  09:20  12:35  bullEntry  277.0  07:35  0.14493278741982582
-2023-01-12  09:05  10:30  bullEntry  279.0  07:45  -0.16888250089832096
-2023-01-13  07:45  12:35  bullEntry  0.0  null  0.7560375335139814
+2023-01-13  07:45  08:40  bullEntry  0.0  null  -0.5263706651274218
 2023-01-20  08:00  12:35  bullEntry  280.0  07:55  1.449431542647781
-2023-01-23  07:45  11:40  bullEntry  0.0  null  0.21025560826426806
+2023-01-23  07:45  12:35  bullEntry  0.0  null  0.2519591999861067
 2023-01-25  08:10  12:35  bullEntry  284.0  07:25  1.4316547041720744
 2023-01-27  08:30  12:35  bullEntry  297.0  07:35  0.8448891823707708
 2023-01-31  07:55  12:35  bullEntry  0.0  null  0.12982132486078218
-2023-02-02  07:40  11:15  bullEntry  0.0  null  0.34355986221550205
-2023-02-03  07:40  10:00  bullEntry  0.0  null  -0.8637297713845357
-2023-02-13  07:40  11:50  bullEntry  304.0  07:25  0.20820251825904765
+2023-02-02  07:40  11:35  bullEntry  0.0  null  -0.241444805717413
+2023-02-03  07:40  08:50  bullEntry  0.0  null  -0.3082455689699395
+2023-02-13  07:40  12:35  bullEntry  304.0  07:25  0.6312171585313543
 2023-02-15  08:40  12:35  bullEntry  308.0  07:25  0.247250959724117
-2023-02-16  09:30  12:15  bullEntry  309.0  08:25  -0.663777853514439
-2023-02-28  09:25  12:25  bullEntry  296.0  07:20  -0.15260962458031968
-2023-03-02  10:35  12:35  bullEntry  292.0  07:25  1.1211725488848374
-2023-03-03  09:10  12:35  bullEntry  299.0  07:55  0.5977768076031936
+2023-03-02  10:55  12:35  bullEntry  292.0  07:25  0.7420785045449162
+2023-03-03  11:10  12:35  bullEntry  299.0  07:55  0.10359577596578072
 2023-03-06  07:40  09:45  bullEntry  0.0  null  -0.4364151378413058
 2023-03-08  08:05  09:35  bullEntry  298.0  07:20  -0.33796268300711935
-2023-03-14  07:45  10:20  bullEntry  0.0  null  -0.5082463816896827
+2023-03-10  08:25  08:50  bullEntry  293.0  07:25  -0.3482453151618477
+2023-03-14  07:45  10:15  bullEntry  0.0  null  -0.3601480982834231
+2023-03-15  11:25  12:35  bullEntry  297.0  07:20  -0.04697513673119698
 2023-03-16  07:40  12:35  bullEntry  301.0  07:20  2.10102220890354
-2023-03-20  07:45  12:35  bullEntry  305.0  07:20  0.28370098441615804
-2023-03-23  07:40  12:35  bullEntry  0.0  null  -1.1073771803488492
+2023-03-20  07:45  09:00  bullEntry  305.0  07:20  -0.14973107510852787
+2023-03-23  07:40  10:10  bullEntry  0.0  null  -0.10241638662185733
 2023-03-24  08:55  12:35  bullEntry  310.0  07:25  0.4202359786649279
 2023-03-30  08:15  12:35  bullEntry  317.0  07:20  -0.0806834361651623
 2023-03-31  07:40  12:35  bullEntry  320.0  07:35  0.6223479490806281
@@ -409,11 +377,9 @@ public class QQQMasterLongTester {
 2023-04-10  07:45  12:35  bullEntry  316.0  07:30  0.7688400736461258
 2023-04-13  08:35  12:35  bullEntry  319.0  07:45  0.5847341473020836
 2023-04-19  07:40  12:35  bullEntry  319.0  07:25  0.3806827119710491
-2023-04-20  09:30  11:25  bullEntry  319.0  08:10  -0.2486947766555015
 2023-04-21  08:00  12:35  bullEntry  317.0  07:45  -0.014230598950103066
 2023-04-26  08:20  12:35  bullEntry  315.0  07:25  -0.8064131316505303
 2023-04-27  07:40  12:35  bullEntry  0.0  null  0.9163622622496614
-2023-05-01  09:30  12:35  bullEntry  324.0  07:30  -0.3313411575263968
 2023-05-04  08:05  11:30  bullEntry  318.0  07:25  -0.2046149481448894
 2023-05-05  07:40  12:35  bullEntry  0.0  null  0.48659909209626195
 2023-05-08  08:40  12:35  bullEntry  0.0  null  0.2851917294398512
@@ -431,39 +397,34 @@ public class QQQMasterLongTester {
 2023-06-12  08:35  12:35  bullEntry  358.0  07:20  0.882225834016964
 2023-06-15  07:45  12:35  bullEntry  0.0  null  0.8361090340561608
 2023-06-22  08:40  12:35  bullEntry  366.0  07:40  0.10367734165381128
-2023-06-23  09:15  12:35  bullEntry  365.0  08:00  -0.2089921627938927
 2023-06-27  08:25  12:35  bullEntry  362.0  07:20  0.9202794101341594
 2023-06-28  07:45  09:35  bullEntry  0.0  null  -0.44754308814291377
-2023-07-07  09:05  12:35  bullEntry  369.0  07:40  -0.2905527006223039
 2023-07-11  08:55  12:35  bullEntry  369.0  08:00  -0.12112722030301519
-2023-07-13  09:10  12:35  bullEntry  0.0  null  0.5589848199856828
 2023-07-17  08:10  12:35  bullEntry  0.0  null  0.5502225840763817
 2023-07-18  08:35  12:35  bullEntry  0.0  null  1.186015418671772
 2023-07-19  07:40  09:40  bullEntry  389.0  07:20  -0.48531158036036853
 2023-07-25  08:35  12:35  bullEntry  381.0  07:20  0.19660623334125157
 2023-07-28  08:10  10:35  bullEntry  385.0  07:30  -0.1645221029599238
 2023-08-01  07:45  12:35  bullEntry  384.0  07:20  0.044073107049602114
-2023-08-04  09:25  11:05  bullEntry  378.0  07:20  -0.7838095490294745
-2023-08-07  10:55  12:35  bullEntry  376.0  07:35  0.08551805232635644
 2023-08-14  07:40  12:35  bullEntry  0.0  null  0.23025943720567132
 2023-08-18  07:40  12:35  bullEntry  358.0  07:20  0.3980378416257928
-2023-08-21  10:20  12:35  bullEntry  363.0  07:30  0.4578805097368478
+2023-08-21  10:40  12:35  bullEntry  363.0  07:30  0.26428807400065507
 2023-08-23  07:40  12:35  bullEntry  0.0  null  0.4427302604774956
 2023-08-29  08:10  12:35  bullEntry  375.0  08:10  0.5122703500066965
-2023-08-30  09:05  12:35  bullEntry  377.0  07:30  -0.0500744220488602
 2023-09-05  07:45  12:35  bullEntry  380.0  07:25  0.29122872044690973
 2023-09-07  07:40  12:35  bullEntry  373.0  07:35  -0.010755868670833746
-2023-09-11  10:25  12:35  bullEntry  0.0  null  0.3616780799149029
 2023-09-13  08:00  12:05  bullEntry  375.0  07:20  -0.32309949319818465
 2023-09-14  07:40  12:35  bullEntry  377.0  07:20  0.22304240460953637
 2023-09-18  08:30  12:35  bullEntry  0.0  null  -0.30981438077533807
-2023-09-19  10:45  12:35  bullEntry  370.0  10:30  -0.054093527709421864
 2023-09-22  07:40  10:35  bullEntry  362.0  07:20  -0.39062013057975825
-2023-10-02  08:10  11:45  bullEntry  363.0  07:20  -0.7543216198635344
+2023-09-25  08:10  12:35  bullEntry  360.0  07:30  0.20039520837752942
+2023-09-28  08:20  12:35  bullEntry  357.0  07:35  0.1750234531427211
+2023-10-02  08:10  08:45  bullEntry  363.0  07:20  -0.16746709479190108
+2023-10-04  07:40  12:35  bullEntry  359.0  07:25  0.7577664066213627
 2023-10-06  07:40  12:35  bullEntry  0.0  null  1.8770713231403373
-92
-Loss due to position -13.406249983602692  37 Stop loss hit exit []
-Booked Profit from position exit 32.00477577247958  55
+80
+Loss due to position -8.687898679307521  30 Stop loss hit exit []
+Booked Profit from position exit 29.87797180668692  50
 
 2023-01-20  280.0  07:55  0.07129998966510251  0.9686715767632612
 2023-01-25  284.0  07:25  0.1403260099220411  1.0914245216158753

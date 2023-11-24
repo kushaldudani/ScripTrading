@@ -24,7 +24,7 @@ public class VolumeGraphPatternEntry {
 			Map<String, Double> bookedProfitMap, String enterString, double strike, String strikeTime) {
 		List<GraphSegment> graphSegments = new ArrayList<>();
 		Map<String, Double> priceWithTime = new LinkedHashMap<>();
-		int cummulativeVolumeSignal = 0;
+		//int cummulativeVolumeSignal = 0;
 		LinkedList<String> volumeSignalQueue = new LinkedList<>();
 		//LinkedList<Double> closePricesQueue = new LinkedList<>();
 		int trendViaGS = 0;
@@ -43,34 +43,32 @@ public class VolumeGraphPatternEntry {
 					time, ninetyPercentileBarChange, priceWithTime);
 			if (time.compareTo(enterTime) > 0 && time.compareTo(closeTime) < 0) {
 				GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
-				
-				double currentVol = dayData.getMinuteDataMap().get(time).getVolume();
-				double sumVolume = 0; int cntr = 0;
-				String timeCntr = Util.timeNMinsAgo(time, 45);
-				while (timeCntr.compareTo(time) < 0) {
-					double volm = dayData.getMinuteDataMap().get(timeCntr).getVolume();
-					sumVolume = sumVolume + volm;
-					cntr++;
-					timeCntr = Util.timeNMinsAgo(timeCntr, -5);
-				}
-				double avgVol = (sumVolume / cntr);
-				
 				double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
-				double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
-				//System.out.println("In exit " + time + "  " + avgVol + "  " + currentVol);
 				
-				if (currentVol > 1.25 * avgVol && closeAtTime > openAtTime) {
-					cummulativeVolumeSignal++;
-				} else {
-					cummulativeVolumeSignal = 0;
+				/*String timeCnr = Util.timeNMinsAgo(time, 15);
+				if (timeCnr.compareTo("08:00") < 0) {
+					timeCnr = "08:00";
 				}
+				while (timeCnr.compareTo(time) <= 0) {
+					double currentVol = dayData.getMinuteDataMap().get(timeCnr).getVolume();
+					double sumVolume = 0; int cntr = 0;
+					String timeStart = Util.timeNMinsAgo(timeCnr, 45);
+					while (timeStart.compareTo(timeCnr) < 0) {
+						sumVolume = sumVolume + dayData.getMinuteDataMap().get(timeStart).getVolume();
+						cntr++;
+						timeStart = Util.timeNMinsAgo(timeStart, -5);
+					}
+					double avgVol = (sumVolume / cntr);
+				    if (currentVol > 2 * avgVol) {
+				    	volumeSignalQueue.add(timeCnr);
+				    }
+				    timeCnr = Util.timeNMinsAgo(timeCnr, -5);
+				}*/
 				
-				if ( cummulativeVolumeSignal >= 4 ) {
-					volumeSignalQueue.add(time);
-				}
-				
-				if ((lastGS.identifier.equals("u") && closeAtTime >= lastGS.endPrice 
-						&& (currentVol > 2.25 * avgVol || (volumeSignalQueue.size() > 0 && Util.diffTime(volumeSignalQueue.peekLast(), time) <= 10)) ) 
+				if ( (lastGS.identifier.equals("u") && closeAtTime >= lastGS.endPrice && (((lastGS.endPrice - lastGS.startPrice) / lastGS.startPrice) * 100) > 0.5
+						&& (((enterPrice - closeAtTime) / enterPrice) * 100) < -0.1 
+						//&& (volumeSignalQueue.size() > 0) 
+					 ) 
 						|| trendViaGS == -1) {
 				//if ((lastGS.identifier.equals("u") && trendViaGS == 1) || trendViaGS == -1) {
 					trendViaGS = -1;
@@ -101,7 +99,7 @@ public class VolumeGraphPatternEntry {
 		//LinkedList<Double> closePricesQueue = new LinkedList<>();
 		int trendViaGS = 0;
 		double pThreshold = 0;
-		int cummulativeVolumeSignal = 0;
+		//int cummulativeVolumeSignal = 0;
 		LinkedList<String> volumeSignalQueue = new LinkedList<>();
 		/*List<Double> profitLevels = new ArrayList<>();
 		profitLevels.add(profitThreshold);
@@ -148,7 +146,7 @@ public class VolumeGraphPatternEntry {
 				//System.out.println(trendViaGS);
 				//System.out.println("pThreshold " + pThreshold);
 				//System.out.println("high price " + dayData.getMinuteDataMap().get(time).getHighPrice() + " highest Pcnt " + ((dayData.getMinuteDataMap().get(time).getHighPrice() - enterPrice) / enterPrice) * 100);
-				String timeCnr = Util.timeNMinsAgo(time, 15);
+				/*String timeCnr = Util.timeNMinsAgo(time, 15);
 				if (timeCnr.compareTo("08:00") < 0) {
 					timeCnr = "08:00";
 				}
@@ -166,14 +164,15 @@ public class VolumeGraphPatternEntry {
 				    	volumeSignalQueue.add(timeCnr);
 				    }
 				    timeCnr = Util.timeNMinsAgo(timeCnr, -5);
-				}
+				}*/
 				
 				double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 				GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
 				//if ( ( (((closeAtTime - enterPrice) / enterPrice) * 100) < -0.6 ) 
 				//		|| trendViaGS == -1) {
-				if ( (lastGS.identifier.equals("d") && closeAtTime <= lastGS.endPrice && (((lastGS.startPrice - lastGS.endPrice) / lastGS.startPrice) * 100) > 0.5
-						&& (volumeSignalQueue.size() > 0) 
+				if ( (lastGS.identifier.equals("d") && closeAtTime <= lastGS.endPrice && (((lastGS.startPrice - lastGS.endPrice) / lastGS.startPrice) * 100) > 0.5 
+						&& (((closeAtTime - enterPrice) / enterPrice) * 100) < -0.1
+						//&& (volumeSignalQueue.size() > 0) 
 					 ) 
 						|| trendViaGS == -1) {
 				//if (!lastGS.identifier.equals("u")) {
@@ -242,14 +241,14 @@ public class VolumeGraphPatternEntry {
 	public static String bullEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> callVolumeSignal, 
 			LinkedList<String> altCallVolumeSignal, double strike,
 			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike) {
-		LinkedList<String> optionVolumeSignalToUse = null;
+		/*LinkedList<String> optionVolumeSignalToUse = null;
 		if (strike == alternateStrike) {
 			optionVolumeSignalToUse = callVolumeSignal;
 		} else if (strike == 0) {
 			optionVolumeSignalToUse = altCallVolumeSignal;
 		} else {
 			optionVolumeSignalToUse = (strike > alternateStrike) ? altCallVolumeSignal : callVolumeSignal;
-		}
+		}*/
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -310,14 +309,14 @@ public class VolumeGraphPatternEntry {
 	
 	public static String bearEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> putVolumeSignal, LinkedList<String> altPutVolumeSignal, double strike,
 			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike) {
-		LinkedList<String> optionVolumeSignalToUse = null;
+		/*LinkedList<String> optionVolumeSignalToUse = null;
 		if (strike == alternateStrike) {
 			optionVolumeSignalToUse = putVolumeSignal;
 		} else if (strike == 0) {
 			optionVolumeSignalToUse = altPutVolumeSignal;
 		} else {
 			optionVolumeSignalToUse = (strike < alternateStrike) ? altPutVolumeSignal : putVolumeSignal;
-		}
+		}*/
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -335,7 +334,7 @@ public class VolumeGraphPatternEntry {
 			double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altPutVolumeSignal);
 			/*System.out.println("In entry " + time + " Strike " + strike);
 			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(putVolumeSignal);

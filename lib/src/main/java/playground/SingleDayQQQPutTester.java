@@ -135,8 +135,7 @@ public class SingleDayQQQPutTester {
 			for (String time : dayData.getMinuteDataMap().keySet()) {
 				if (time.compareTo(optionSellingTime) > 0 && time.compareTo(closeTime) < 0) {
 					if (!dayData.getPutDataMap().get(strikePrice).containsKey(time)) {
-						closedPriceTime = time;
-						break;
+						continue;
 					}
 					double currrentPutPriceAtStrike = dayData.getPutDataMap().get(strikePrice).get(time).getLowPrice();
 					double currentProfitPercent = ((currrentPutPriceAtStrike / optionSellingTimePrice) * 100);

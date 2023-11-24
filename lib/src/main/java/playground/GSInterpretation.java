@@ -11,7 +11,7 @@ import ScripTrading.MinuteData;
 import ScripTrading.Util;
 import ScripTrading.IGraphSegment.PriceTime;
 import ScripTrading.IGraphSegment.PullBackLevel;
-// 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
+// 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
 public class GSInterpretation {
 	
 	public enum GSInterpretationType {
@@ -55,7 +55,7 @@ public class GSInterpretation {
 	private void evaluateShort(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
 			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse) {
 		double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
-		double strikeCutOff = strike + (strike * 0.001); // Changing this to 0 will cut rows 3/24, 3/30 etc.
+		double strikeCutOff = strike; //+ (strike * 0.001); // Changing this to 0 will cut rows 3/24, 3/30 etc.
 		int segmentsSize = interpretedGSs.size();
 		int cntr = segmentsSize - 1;
 		IGraphSegment lowestStartU = null;
@@ -70,19 +70,18 @@ public class GSInterpretation {
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
 			//
-			if ( (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 45)
-					&& lastIGS.identifier.equals("d") 
+			if (lastIGS.identifier.equals("d") 
 					&& (lowestStartU == null || lastIGS.endPrice < lowestStartU.startPrice) 
 					&& closeAtTime <= lastIGS.endPrice
-					&& time.compareTo("07:45") >= 0
+					&& time.compareTo("07:40") >= 0 
+					&& ( ( time.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) )
+						   || 
+						 ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice <= strikeCutOff) ) 
+					   )
+					&& (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
 					//&& (avgVix == 0 || (((rawVix - avgVix) / avgVix) * 100) <= 17)
 				) {
-				if ( ( (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange) && time.compareTo("09:15") <= 0 
-					     && (avgVix == 0 || (((rawVix - avgVix) / avgVix) * 100) <= 7) )
-					    || (strike > 0 && lastIGS.endPrice <= strikeCutOff)
-					) {
 					currrentShortState = GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES;
-				}
 			}
 		}
 	}
@@ -90,7 +89,7 @@ public class GSInterpretation {
 	private void evaluateLong(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
 			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse) {
 		double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
-		double strikeCutOff = strike - (0.001 * strike);
+		double strikeCutOff = strike;// - (0.001 * strike);
 		int segmentsSize = interpretedGSs.size();
 		int cntr = segmentsSize - 1;
 		IGraphSegment highestStartD = null;
@@ -105,16 +104,16 @@ public class GSInterpretation {
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
 			//
-			if ((optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30)
-					&& lastIGS.identifier.equals("u")
+			if (lastIGS.identifier.equals("u")
 					&& (highestStartD == null || lastIGS.endPrice > highestStartD.startPrice)
 					&& closeAtTime >= lastIGS.endPrice
-					&& time.compareTo("07:40") >= 0 //&& time.compareTo("09:15") <= 0 
-					&& ( avgVix == 0 || (((rawVix - avgVix) / avgVix) * 100) <= 20 ) //&& (((rawVix - avgVix) / avgVix) * 100) >= -6
-					//&& ( ( (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange) && time.compareTo("09:15") <= 0
-					//		 )
-					   //|| (strike > 0 && lastIGS.endPrice >= strikeCutOff) 
-					//   )
+					&& time.compareTo("07:40") >= 0 
+					&& ( ( time.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) )
+					       || 
+					     ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice >= strikeCutOff) ) 
+					   )
+					&& (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
+					
 				) {
 				
 				currrentLongState = GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES;
