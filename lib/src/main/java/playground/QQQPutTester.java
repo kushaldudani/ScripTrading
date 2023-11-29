@@ -62,24 +62,64 @@ public class QQQPutTester {
 		return avgVol;
 	}
 	
-	private static StrikeWithPrice getStrikeWithPrice(DayData dayData, String time, Downloader downloader, String currentDateString, boolean downloadedMoreData,
-			double prevTargetedStrikePrice, List<IGraphSegment> interpretedGSs) {
+	private static double getTargetedStrike(DayData dayData, String time, IGraphSegment lastIGSD) {
 		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
-		double percentHigherFactor = (time.compareTo("08:45") <= 0) ? 0.009 : 0.009;
-		double priceLevelToPlaceOrder = (((closeAtTime - openAtTime) / openAtTime) * 100 > 0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
+		double percentHigherFactor = (lastIGSD != null && (((lastIGSD.startPrice - lastIGSD.endPrice) / lastIGSD.startPrice) * 100) >= (5 * 0.3) ) 
+				                     ? 0.009 : 0.009;
+		double priceLevelToPlaceOrder = (Math.abs(((closeAtTime - openAtTime) / openAtTime) * 100) > 0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
 		double targetedStrikePrice = ((int) (priceLevelToPlaceOrder - percentHigherFactor * priceLevelToPlaceOrder)) + 1;
 		
-		downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
-		double putPriceTotarget = 0;
-		if (dayData.getPutDataMap().get(targetedStrikePrice).containsKey(time)) {
-			putPriceTotarget = dayData.getPutDataMap().get(targetedStrikePrice).get(time).getClosePrice();
+		return targetedStrikePrice;
+	}
+	
+	private static StrikeWithPrice getStrikeWithPrice(DayData dayData, String time, Downloader downloader, String currentDateString, boolean downloadedMoreData,
+			double prevTargetedStrikePrice, List<IGraphSegment> interpretedGSs) {
+		int segmentsSize = interpretedGSs.size();
+		int cntr = segmentsSize - 1;
+		IGraphSegment lastIGSD = null;
+		while (cntr >= 0) {
+			IGraphSegment interpretedGS = interpretedGSs.get(cntr);
+			if (interpretedGS.identifier.equals("d") ) {
+				lastIGSD = interpretedGS;
+				break;
+			}
+			cntr--;
 		}
-		putPriceTotarget = putPriceTotarget * 1.1;
 		
-		putPriceTotarget = Math.max(putPriceTotarget, ((0.05 * closeAtTime) / 100));
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		double targetedStrikePrice = getTargetedStrike(dayData, time, lastIGSD);
 		
-		return new StrikeWithPrice(targetedStrikePrice, putPriceTotarget, downloadedMoreData);
+		downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
+		double maxPutPriceTotarget = 0;
+		String timeCntr = Util.timeNMinsAgo(time, 0);
+		while (timeCntr.compareTo(time) <= 0) {
+			double putPriceTotarget = 0;
+			if (dayData.getPutDataMap().get(targetedStrikePrice).containsKey(timeCntr)) {
+				putPriceTotarget = dayData.getPutDataMap().get(targetedStrikePrice).get(timeCntr).getClosePrice();
+			}
+			putPriceTotarget = putPriceTotarget * 1.1;
+			
+			if (putPriceTotarget > maxPutPriceTotarget) {
+				maxPutPriceTotarget = putPriceTotarget;
+			}
+			
+			timeCntr = Util.timeNMinsAgo(timeCntr, -5);
+		}
+		
+		/*double premiumPercent = ((maxPutPriceTotarget / closeAtTime) * 100);
+		if (premiumPercent < 0.04) {
+			targetedStrikePrice = targetedStrikePrice + 1;
+			downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
+			if (dayData.getPutDataMap().get(targetedStrikePrice).containsKey(time)) {
+				maxPutPriceTotarget = dayData.getPutDataMap().get(targetedStrikePrice).get(time).getClosePrice();
+			}
+			maxPutPriceTotarget = maxPutPriceTotarget * 1.1;
+		}*/
+		
+		maxPutPriceTotarget = Math.max(maxPutPriceTotarget, ((0.05 * closeAtTime) / 100));
+		
+		return new StrikeWithPrice(targetedStrikePrice, maxPutPriceTotarget, downloadedMoreData);
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -150,17 +190,20 @@ public class QQQPutTester {
 			double closeAtStartTime = dayData.getMinuteDataMap().get(startTime).getClosePrice();
 			double strikePrice = 0;
 			double soldPutPrice = 0;
-			boolean uSignal = true;
+			boolean firstSignal = true;
+			//boolean secondSignal = true;
+			GSInterpretation gsInterpretation = new GSInterpretation();
 			
 			double targetedStrikePrice = 0;
 			double prevTargetedStrikePrice = 0;
 			double putPriceTotarget = 0;
+			GraphSegment lastGS = null;
 			for (String time : dayData.getMinuteDataMap().keySet()) {
 				if (putPriceTotarget > 0 
 						&& dayData.getPutDataMap().get(targetedStrikePrice).containsKey(time) 
 						&& dayData.getPutDataMap().get(targetedStrikePrice).get(time).getHighPrice() >= putPriceTotarget
-						&& uSignal == false//&& !lastGS.identifier.equals("d") //|| doesGSHasAnyDorDr(graphSegments))
-						//&& !lastGS.identifier.equals("ur")
+						&& firstSignal == false
+						//&& secondSignal == false
 					) {
 					strikePrice = targetedStrikePrice;
 					optionSellingTime = time;
@@ -172,15 +215,20 @@ public class QQQPutTester {
 						dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),
 						dayData.getMinuteDataMap().get(time).getHighPrice(), dayData.getMinuteDataMap().get(time).getLowPrice(),
 						time, ninetyPercentileBarChange, priceWithTime);
+				lastGS = graphSegments.get(graphSegments.size() - 1);
+				//if ( ( lastGS.identifier.equals("d") ) && firstSignal == false ) {
+				//	secondSignal = false;
+				//}
+				List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
 				if (time.compareTo(startTime) >= 0 && time.compareTo(midTime) < 0) {
 					//System.out.println(time);
-					GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
-					if (!lastGS.identifier.equals("d") && time.compareTo(startTime) >= 0) {
-						uSignal = false;
+					if ( (!lastGS.identifier.equals("d")) ) {
+					//if ( (lastGS.identifier.equals("u") || lastGS.identifier.equals("dr") || lastGS.identifier.equals("ur") ) ) {
+						firstSignal = false;
 					}
 
 					prevTargetedStrikePrice = targetedStrikePrice;
-					StrikeWithPrice swp = getStrikeWithPrice(dayData, time, downloader, currentDateString, downloadedMoreData, prevTargetedStrikePrice, null);
+					StrikeWithPrice swp = getStrikeWithPrice(dayData, time, downloader, currentDateString, downloadedMoreData, prevTargetedStrikePrice, interpretedGSs);
 					targetedStrikePrice = swp.strike;
 					downloadedMoreData = swp.downloadedMoreData;
 					putPriceTotarget = swp.price;
@@ -216,15 +264,17 @@ public class QQQPutTester {
 				continue;
 			}
 			
-			volatilityQueue.add(totalOptionPriceAtStartTime);
-			if (volatilityQueue.size() > 30) {
-				volatilityQueue.poll();
+			if (avgVolatility == 0 || totalOptionPriceAtStartTime < (1.66 * avgVolatility)) {
+				volatilityQueue.add(totalOptionPriceAtStartTime);
+				if (volatilityQueue.size() > 30) {
+					volatilityQueue.poll();
+				}
 			}
 			
 			if (strikePrice == 0) {
 				calendar.add(Calendar.DATE, 1);
 		        currentDate = calendar.getTime();
-		        System.out.println(currentDateString + " Did not process as no entry");
+		        //System.out.println(currentDateString + " Did not process as no entry");
 		        prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
 		        if (downloadedMoreData) {
 					Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
@@ -254,11 +304,17 @@ public class QQQPutTester {
 			
 			String closedPriceTime = null;
 			double closedThreshold = 0.005;
+			String shouldAddStopLossAtTime = null;
 			for (String time : dayData.getMinuteDataMap().keySet()) {
 				if (time.compareTo(optionSellingTime) > 0 && time.compareTo(closeTime) < 0) {
 					if (!dayData.getPutDataMap().get(strikePrice).containsKey(time)) {
 						continue;
 					}
+					
+					if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - strikePrice) / strikePrice) * 100) < -0.6 && shouldAddStopLossAtTime == null) {
+						shouldAddStopLossAtTime = time;
+					}
+					
 					double currrentPutPriceAtStrike = dayData.getPutDataMap().get(strikePrice).get(time).getLowPrice();
 					double currentProfitPercent = ((currrentPutPriceAtStrike / optionSellingTimePrice) * 100);
 					if (currentProfitPercent <= closedThreshold) {
@@ -353,7 +409,7 @@ public class QQQPutTester {
 					sumprofitPcntWithLimit = sumprofitPcntWithLimit + profitPcnt;
 				} else {
 					problemCases++;
-					rollBackTime = closeTime;
+					rollBackTime = closeTime; //(shouldAddStopLossAtTime != null) ? shouldAddStopLossAtTime : closeTime;
 					double putbuybackprice = 0;
 					if (dayData.getPutDataMap().get(strikePrice).containsKey(rollBackTime)) {
 						putbuybackprice = dayData.getPutDataMap().get(strikePrice).get(rollBackTime).getClosePrice();
@@ -368,13 +424,13 @@ public class QQQPutTester {
 				
 				
 				allCases.put(currentDateString + "  " + optionSellingTime, strikePrice);
-				if (profitPcnt > 0.4) {	
+				//if (shouldAddStopLossAtTime != null) {	
 					
 					System.out.println(rowToWrite);
 					experimentCasesSubset++;
 					sumExperimentProfitPcnt = sumExperimentProfitPcnt + profitPcnt;
 					sumExperimentPremiumPcnt = sumExperimentPremiumPcnt + premiumPercent;
-				}
+				//}
 				
 				//System.out.println(currentDateString + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + breachedPrice + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
 			//}
@@ -382,7 +438,7 @@ public class QQQPutTester {
 			if (downloadedMoreData) {
 				Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
 			}
-			Util.serializeDoubleHashMap(allCases, "config/QQQPutCases.txt");
+			//Util.serializeDoubleHashMap(allCases, "config/QQQPutCases.txt");
 			calendar.add(Calendar.DATE, 1);
 	        currentDate = calendar.getTime();
 		}
@@ -456,10 +512,10 @@ public class QQQPutTester {
 
 /*
 
-Loss due to rollback option selling at the end of the day 14.319413841265536  71
+Loss due to rollback option selling at the end of the day 14.431995636948926  72
 Loss due to rollback option selling with Limit order 0.6550000000000005
-Total Days 202
-Profit from Premium selling 24.731656856050584
+Total Days 203
+Profit from Premium selling 24.94826969462124
 
  */
 

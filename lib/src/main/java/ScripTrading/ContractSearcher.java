@@ -44,9 +44,9 @@ public class ContractSearcher {
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
 		//long cId = 0;
-		long startTime = System.currentTimeMillis();
-		long currentTime = System.currentTimeMillis();
-		while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
+		//long startTime = System.currentTimeMillis();
+		//long currentTime = System.currentTimeMillis();
+		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = post(baseUrl, getJsonString());
@@ -57,10 +57,7 @@ public class ContractSearcher {
 				LoggerUtil.getLogger().info("ContractSearcher responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
-				break;
-			}
-			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(5000);
+				//break;
 			}
 			if(responseStatusCode == 500){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -70,7 +67,7 @@ public class ContractSearcher {
 					System.out.println(line);
 					LoggerUtil.getLogger().info(line);
 				}
-				break;
+				//break;
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -86,11 +83,6 @@ public class ContractSearcher {
 		}catch(Exception e){
 			//e.printStackTrace();
 			LoggerUtil.getLogger().info(e.getMessage());
-			try {
-				Thread.sleep(5000);
-			} catch (Exception e1) {
-				//e1.printStackTrace();
-			}
 		}finally{
 			if(bufferedReader != null){
 				try {
@@ -103,14 +95,34 @@ public class ContractSearcher {
 				} catch (Exception e) {}
 			}
 		}
-		currentTime = System.currentTimeMillis();
-		}
+		//currentTime = System.currentTimeMillis();
+		//}
 		
 		return ;
 	}
 	
+	long searchWithTries(String baseUrl, String expiryDate, double strike, String monthString, String time, String callOrPut){
+		int attempts = 0;
+		long cId = 0;
+		while (attempts < 3) {
+			RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
+			client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
+			cId = search(baseUrl, expiryDate, strike, monthString, time, callOrPut);
+			if (cId > 0) {
+				break;
+			} else {
+				try {
+					Thread.sleep(3000);
+				} catch (Exception e1) {}
+			}
+			
+			attempts++;
+		}
+		
+		return cId;
+	}
 	
-	long search(String baseUrl, String expiryDate, double strike, String monthString, String time, String callOrPut){
+	private long search(String baseUrl, String expiryDate, double strike, String monthString, String time, String callOrPut){
 		Util.reauthIfNeeded(TickleMapProvider.getInstance().getTickleMap(), time);
 		searchPrequisite("https://localhost:5000/v1/api/iserver/secdef/search");
 		
@@ -120,9 +132,9 @@ public class ContractSearcher {
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
 		long cId = 0;
-		long startTime = System.currentTimeMillis();
-		long currentTime = System.currentTimeMillis();
-		while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
+		//long startTime = System.currentTimeMillis();
+		//long currentTime = System.currentTimeMillis();
+		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
@@ -133,10 +145,7 @@ public class ContractSearcher {
 				LoggerUtil.getLogger().info("ContractSearcher responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
-				break;
-			}
-			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(5000);
+				//break;
 			}
 			if(responseStatusCode == 500){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -146,7 +155,7 @@ public class ContractSearcher {
 					System.out.println(line);
 					LoggerUtil.getLogger().info(line);
 				}
-				break;
+				//break;
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -173,11 +182,6 @@ public class ContractSearcher {
 		}catch(Exception e){
 			//e.printStackTrace();
 			LoggerUtil.getLogger().info(e.getMessage());
-			try {
-				Thread.sleep(5000);
-			} catch (Exception e1) {
-				//e1.printStackTrace();
-			}
 		}finally{
 			if(bufferedReader != null){
 				try {
@@ -190,8 +194,8 @@ public class ContractSearcher {
 				} catch (Exception e) {}
 			}
 		}
-		currentTime = System.currentTimeMillis();
-		}
+		//currentTime = System.currentTimeMillis();
+		//}
 		
 		return cId;
 	}

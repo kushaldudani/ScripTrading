@@ -116,7 +116,7 @@ public class QQQMasterShortTester {
 			DayData dayData = dayDataMap.get(currentDateString);
 			
 			if (currentDateString.compareTo("2022-12-01") >= 0 && !currentDateString.equals("2023-07-03")
-					// && currentDateString.equals("2023-02-08")
+					// && currentDateString.equals("2023-08-25")
 					) {
 				double closeAtStartTimeFloor = (int) dayData.getMinuteDataMap().get(VolumeGraphPatternEntry.startTime).getClosePrice();
 				downloadedMoreData = downloadOptionData(closeAtStartTimeFloor, currentDateString, dayData, downloader, downloadedMoreData);
@@ -140,17 +140,17 @@ public class QQQMasterShortTester {
 					volatilityQueue.poll();
 				}
 				
-				String time = VolumeGraphPatternEntry.startTime;
+				String time = "06:45";//VolumeGraphPatternEntry.startTime;
 				double shortEnterPrice = 0.0; String shortEnterTime = null; String shortEnterString = "";
 				int noOfEntriesForBear = 0;
 				putVolumeSignal = new LinkedList<>();
-				//LinkedList<String> alternatePutVolumeSignal = new LinkedList<>();
-				//LinkedList<Double> putOptionQueue = new LinkedList<>();
-				//LinkedList<Double> alternatePutOptionQueue = new LinkedList<>();
+				LinkedList<String> hugePositiveBars = new LinkedList<>();
+				LinkedList<String> hugeNegativeBars = new LinkedList<>();
 				String strikeTime = null; double strike = 0;
 				double avgVix = vixAvgMap.get(currentDateString);
 				Map<String, MinuteData> rawVix = vixRawData.get(currentDateString);
 				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {
+					VolumeGraphPatternEntry.calculateBarSizes(dayData, 0.3, time, hugePositiveBars, hugeNegativeBars);
 					double alternateStrike = getTargetedStrike(dayData, time);
 					String key = currentDateString + "  " + time;
 					//double putVolume = 0; double putAvgVolume = 0;
@@ -188,7 +188,8 @@ public class QQQMasterShortTester {
 					}
 					
 					// Short Enter
-					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, altPutVolumeSignal, strike, avgVix, rawVix, alternateStrike);
+					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, altPutVolumeSignal, strike, avgVix, rawVix, alternateStrike,
+							hugePositiveBars, hugeNegativeBars);
 					if (returnedTime != null
 							&& shortEnterPrice == 0
 							&& noOfEntriesForBear == 0) {
@@ -375,7 +376,7 @@ public class QQQMasterShortTester {
 2023-05-02  07:45  10:40  bearEntry  0.0  null  -0.25872612663467515
 2023-05-09  08:55  12:35  bearEntry  0.0  null  0.01710225594303606
 2023-05-10  07:40  11:15  bearEntry  323.0  07:35  -0.1546264225630876
-2023-05-12  07:40  12:35  bearEntry  323.0  07:30  0.22752428975526046
+2023-05-12  07:50  12:35  bearEntry  323.0  07:30  0.15231003553900968
 2023-05-19  08:35  12:35  bearEntry  335.0  07:25  -0.1369577515109952
 2023-05-31  07:40  10:40  bearEntry  0.0  null  -0.36253776435045054
 2023-06-07  07:40  12:35  bearEntry  0.0  null  1.1254928658553824
@@ -413,7 +414,7 @@ public class QQQMasterShortTester {
 2023-10-05  07:45  09:15  bearEntry  354.0  07:35  -0.5937693476670342
 74
 Loss due to position -15.062949354694494  42 Stop loss hit exit []
-Booked Profit from position exit 18.923867340915713  32
+Booked Profit from position exit 18.848653086699464  32
 
 
 2022-12-15  278.0  07:20  0.2914428929466523  0.447547440028643

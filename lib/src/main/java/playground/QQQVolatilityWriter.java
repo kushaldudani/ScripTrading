@@ -38,7 +38,7 @@ public class QQQVolatilityWriter {
 		Date nowDate = calendar.getTime();
 		LinkedList<Double> volatilityQueue = new LinkedList<>();
 		boolean downloadedMoreData = false;
-		String startTime = "07:15";
+		String startTime = "07:10";
 		LinkedList<String> internalResultsToWrite = new LinkedList<>();
 		
 		

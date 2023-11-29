@@ -37,9 +37,9 @@ public class Tickle {
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
-		long startTime = System.currentTimeMillis();
-		long currentTime = System.currentTimeMillis();
-		while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
+		//long startTime = System.currentTimeMillis();
+		//long currentTime = System.currentTimeMillis();
+		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = post(baseUrl);
@@ -50,10 +50,7 @@ public class Tickle {
 				LoggerUtil.getLogger().info("tickle responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
-				break;
-			}
-			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(5000);
+				//break;
 			}
 			if(responseStatusCode == 500){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -63,7 +60,7 @@ public class Tickle {
 					System.out.println(line);
 					LoggerUtil.getLogger().info(line);
 				}
-				break;
+				//break;
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -83,11 +80,6 @@ public class Tickle {
 		}catch(Exception e){
 			//e.printStackTrace();
 			LoggerUtil.getLogger().info(e.getMessage());
-			try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e1) {
-				//e1.printStackTrace();
-			}
 		}finally{
 			if(bufferedReader != null){
 				try {
@@ -100,8 +92,8 @@ public class Tickle {
 				} catch (Exception e) {}
 			}
 		}
-		currentTime = System.currentTimeMillis();
-		}
+		//currentTime = System.currentTimeMillis();
+		//}
 		
 		return sessionId;
 	}

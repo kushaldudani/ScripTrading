@@ -71,6 +71,19 @@ public class OrderPoller implements Runnable {
 					}
 				}
 				
+				Trade stockExitTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/positionexit.txt");
+				TradeConfirmation stockexittradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/stockexittradeconfirmation.txt");
+				if (stockExitTrade != null && !stockExitTrade.getOrderId().equals("") && !stockExitTrade.getOrderId().equals("na")
+						&& (stockexittradeconfirmation == null || stockexittradeconfirmation.getHasOrderFilled() == false)) {
+					String orderId = stockExitTrade.getOrderId();
+					PollResult pollresult = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
+					if (pollresult != null && pollresult.executedPrice > 0) {
+						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, 0, "/home/kushaldudani/qqq/stockexittradeconfirmation.txt");
+					}
+				}
+				
+				///////
+				
 				optionEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq2/optionenter.txt");
 				optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/optiontradeconfirmation.txt");
 				if (optionEnterTrade != null && !optionEnterTrade.getOrderId().equals("") && !optionEnterTrade.getOrderId().equals("na")
@@ -92,6 +105,18 @@ public class OrderPoller implements Runnable {
 						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, 0, "/home/kushaldudani/qqq2/stocktradeconfirmation.txt");
 					}
 				}
+				
+				stockExitTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq2/positionexit.txt");
+				stockexittradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/stockexittradeconfirmation.txt");
+				if (stockExitTrade != null && !stockExitTrade.getOrderId().equals("") && !stockExitTrade.getOrderId().equals("na")
+						&& (stockexittradeconfirmation == null || stockexittradeconfirmation.getHasOrderFilled() == false)) {
+					String orderId = stockExitTrade.getOrderId();
+					PollResult pollresult = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", orderId);
+					if (pollresult != null && pollresult.executedPrice > 0) {
+						MetadataUtil.getInstance().writeTradeConfirmation(currentDateString, true, time, 0, "/home/kushaldudani/qqq2/stockexittradeconfirmation.txt");
+					}
+				}
+				
 			} catch (Exception e) {
 				LoggerUtil.getLogger().info(e.getMessage());
 			}

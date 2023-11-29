@@ -240,15 +240,10 @@ public class VolumeGraphPatternEntry {
 	
 	public static String bullEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> callVolumeSignal, 
 			LinkedList<String> altCallVolumeSignal, double strike,
-			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike) {
-		/*LinkedList<String> optionVolumeSignalToUse = null;
-		if (strike == alternateStrike) {
-			optionVolumeSignalToUse = callVolumeSignal;
-		} else if (strike == 0) {
-			optionVolumeSignalToUse = altCallVolumeSignal;
-		} else {
-			optionVolumeSignalToUse = (strike > alternateStrike) ? altCallVolumeSignal : callVolumeSignal;
-		}*/
+			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike,
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -263,10 +258,9 @@ public class VolumeGraphPatternEntry {
 			}
 			
 			
-			double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altCallVolumeSignal);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altCallVolumeSignal, hugePositiveBars, hugeNeativeBars);
 			/*System.out.println("In entry " + time + " Strike " + strike);
 			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(callVolumeSignal);
@@ -308,15 +302,12 @@ public class VolumeGraphPatternEntry {
 	}
 	
 	public static String bearEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> putVolumeSignal, LinkedList<String> altPutVolumeSignal, double strike,
-			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike) {
-		/*LinkedList<String> optionVolumeSignalToUse = null;
-		if (strike == alternateStrike) {
-			optionVolumeSignalToUse = putVolumeSignal;
-		} else if (strike == 0) {
-			optionVolumeSignalToUse = altPutVolumeSignal;
-		} else {
-			optionVolumeSignalToUse = (strike < alternateStrike) ? altPutVolumeSignal : putVolumeSignal;
-		}*/
+			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike,
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		
+		
+		
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -331,10 +322,8 @@ public class VolumeGraphPatternEntry {
 			}
 			
 			
-			double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
-			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altPutVolumeSignal);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altPutVolumeSignal, hugePositiveBars, hugeNeativeBars);
 			/*System.out.println("In entry " + time + " Strike " + strike);
 			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(putVolumeSignal);
@@ -362,42 +351,30 @@ public class VolumeGraphPatternEntry {
 		return null;
 	}
 	
-	/*public static boolean optionBasedLongEntry(DayData dayData, String time, double prevClosePrice) {
-		int increment = 1;
-		double optionSellingTimePrice = dayData.getMinuteDataMap().get(startTime).getOpenPrice();
-		double strikePrice = 0;
-		double priceCntr = ((int) optionSellingTimePrice) + increment;
-		while(strikePrice == 0) {
-			double callPrice = 0.0;
-			if (dayData.getCallDataMap().containsKey(priceCntr)) {
-				callPrice = dayData.getCallDataMap().get(priceCntr).get(startTime).getOpenPrice();
-			} else {
-				throw new IllegalStateException("Data for call price not found");
-			}
-			if (callPrice < ((optionSellingTimePrice / 1000))) {
-				strikePrice = priceCntr - increment;
-				break;
+	public static void calculateBarSizes(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
+		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
+		if (time.compareTo("06:45") >= 0) {
+			double close5MinsAgo = dayData.getMinuteDataMap().get(Util.timeNMinsAgo(time, 5)).getClosePrice();
+			double open5MinsAgo = dayData.getMinuteDataMap().get(Util.timeNMinsAgo(time, 5)).getOpenPrice();
+			
+			if ((((closeAtTime - openAtTime) / openAtTime) * 100) > ninetyPercentileBarChange) {
+				hugePositiveBars.add(time);
+			} else if ( (((closeAtTime - openAtTime) / openAtTime) * 100) > (ninetyPercentileBarChange * 0.66)
+					     && (((close5MinsAgo - open5MinsAgo) / open5MinsAgo) * 100) > (ninetyPercentileBarChange * 0.66)
+					  ) {
+				hugePositiveBars.add(time);
 			}
 			
-			priceCntr = priceCntr + increment;
-		}
-		
-		//String touchcutOffPriceTime = null;
-		//double breachedPrice = 0.0;
-		double cutOffPrice = strikePrice + (0.002 * strikePrice);
-		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
-			if (prevClosePrice > 0 && (((dayData.getMinuteDataMap().get(time).getClosePrice() - prevClosePrice) / prevClosePrice) * 100) > 2.5) {
-				return false;
-			}
-			if (dayData.getMinuteDataMap().get(time).getClosePrice() >= cutOffPrice) {
-				//touchcutOffPriceTime = time;
-				//breachedPrice = dayData.getMinuteDataMap().get(time).getClosePrice();
-				return true;
+			if ((((closeAtTime - openAtTime) / openAtTime) * 100) < (-1 * ninetyPercentileBarChange)) {
+				hugeNeativeBars.add(time);
+			} else if ( (((closeAtTime - openAtTime) / openAtTime) * 100) < (-1 * ninetyPercentileBarChange * 0.66)
+					     && (((close5MinsAgo - open5MinsAgo) / open5MinsAgo) * 100) < (-1 * ninetyPercentileBarChange * 0.66)
+					  ) {
+				hugeNeativeBars.add(time);
 			}
 		}
-		
-		return false;
-	}*/
+	}
 	
 	public static double findAvg(LinkedList<Double> queue) {
 		double sum = 0;

@@ -37,9 +37,6 @@ public class ReauthenticateUtil {
 				//Thread.sleep(5000);
 				
 			}
-			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(5000);
-			}
 			if(responseStatusCode == 500){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
 				bufferedReader = new BufferedReader(inputStreamReader);

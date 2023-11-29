@@ -34,6 +34,8 @@ public class TickleManager implements Runnable {
 				String sessionId = tickleInstance.tickle();
 				tickleMap.put(time, sessionId);
 				tickleInstance.accountPing();
+				
+				new ReauthenticateUtil().reauth();
 			} catch (Exception e) {
 				LoggerUtil.getLogger().info(e.getMessage());
 			}

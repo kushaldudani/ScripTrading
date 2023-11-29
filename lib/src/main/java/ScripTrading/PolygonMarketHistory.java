@@ -34,8 +34,28 @@ public class PolygonMarketHistory {
 		client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
 	}
 	
+	Map<String, MinuteData> dataWithRetries(String currentDateString, double strike, String optionSide){
+		int attempts = 0;
+		Map<String, MinuteData> minuteDataMap = new LinkedHashMap<>();
+		while (attempts < 3) {
+			RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
+			client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
+			minuteDataMap = data(currentDateString, strike, optionSide);
+			if (!minuteDataMap.isEmpty()) {
+				break;
+			} else {
+				try {
+					Thread.sleep(3000);
+				} catch (Exception e1) {}
+			}
+			
+			attempts++;
+		}
+		
+		return minuteDataMap;
+	}
 	
-	Map<String, MinuteData> data(String currentDateString, double strike, String optionSide){
+	private Map<String, MinuteData> data(String currentDateString, double strike, String optionSide){
 		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(System.currentTimeMillis());
@@ -46,9 +66,9 @@ public class PolygonMarketHistory {
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
 		Map<String, MinuteData> minuteDataMap = new LinkedHashMap<>();
-		long startTime = System.currentTimeMillis();
-		long currentTime = System.currentTimeMillis();
-		while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
+		//long startTime = System.currentTimeMillis();
+		//long currentTime = System.currentTimeMillis();
+		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 			HttpResponse response = HttpUtil.get(fullUrl, "", client);
@@ -59,10 +79,7 @@ public class PolygonMarketHistory {
 				LoggerUtil.getLogger().info("MarketHistory responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
-				break;
-			}
-			if (responseStatusCode == 429) { // Too many requests
-				Thread.sleep(5000);
+				//break;
 			}
 			if(responseStatusCode == 500){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -72,7 +89,7 @@ public class PolygonMarketHistory {
 					System.out.println(line);
 					LoggerUtil.getLogger().info(line);
 				}
-				break;
+				//break;
 			}
 			if(responseStatusCode == 200){
 				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -112,11 +129,6 @@ public class PolygonMarketHistory {
 		}catch(Exception e){
 			//e.printStackTrace();
 			LoggerUtil.getLogger().info(e.getMessage());
-			try {
-				Thread.sleep(5000);
-			} catch (Exception e1) {
-				//e1.printStackTrace();
-			}
 		}finally{
 			if(bufferedReader != null){
 				try {
@@ -129,8 +141,8 @@ public class PolygonMarketHistory {
 				} catch (Exception e) {}
 			}
 		}
-		currentTime = System.currentTimeMillis();
-		}
+		//currentTime = System.currentTimeMillis();
+		//}
 		
 		return minuteDataMap;
 	}

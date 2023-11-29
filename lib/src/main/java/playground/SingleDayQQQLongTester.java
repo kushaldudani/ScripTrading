@@ -60,7 +60,7 @@ public class SingleDayQQQLongTester {
 		
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-11-17");
+		Date runDate = sdf.parse("2023-11-29");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -82,17 +82,18 @@ public class SingleDayQQQLongTester {
 			DayData dayData = dayDataMap.get(currentDateString);
 			
 			
-				String time = VolumeGraphPatternEntry.startTime;
+				String time = "06:45";//VolumeGraphPatternEntry.startTime;
 				double longEnterPrice = 0.0; String longEnterTime = null; String longEnterString = "";
 				int noOfEntriesForBull = 0;
 				callVolumeSignal = new LinkedList<>();
 				//LinkedList<String> altCallVolumeSignal = new LinkedList<>();
-				String strikeTime = null; double strike = 0;   // Need to be updated with every run
+				String strikeTime = "07:25"; double strike = 394;   // Need to be updated with every run
 				double avgVix = 0; // Need to be fixed
 				Map<String, MinuteData> rawVix = null; // Need to be fixed
-				//LinkedList<Double> callOptionQueue = new LinkedList<>();
-				//LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
+				LinkedList<String> hugePositiveBars = new LinkedList<>();
+				LinkedList<String> hugeNegativeBars = new LinkedList<>();
 				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {
+					VolumeGraphPatternEntry.calculateBarSizes(dayData, 0.3, time, hugePositiveBars, hugeNegativeBars);
 					double alternateStrike = getTargetedStrike(dayData, time);
 					//String key = currentDateString + "  " + time;
 					//double callAvgVolume = 0; double optionVolumeAtTime = 0;
@@ -122,7 +123,8 @@ public class SingleDayQQQLongTester {
 					}
 					
 					// Long Enter
-					String returnedTime = VolumeGraphPatternEntry.bullEntry(dayData, 0.3, time, callVolumeSignal, altCallVolumeSignal, strike, avgVix, rawVix, alternateStrike);
+					String returnedTime = VolumeGraphPatternEntry.bullEntry(dayData, 0.3, time, callVolumeSignal, altCallVolumeSignal, strike, avgVix, rawVix, alternateStrike,
+							hugePositiveBars, hugeNegativeBars);
 					if (returnedTime != null
 							&& longEnterPrice == 0
 							&& noOfEntriesForBull == 0

@@ -27,8 +27,8 @@ public class QQQGSTester {
 		}
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date startDate = sdf.parse("2023-02-08");
-		Date endDate = sdf.parse("2023-02-09");
+		Date startDate = sdf.parse("2023-09-11");
+		Date endDate = sdf.parse("2023-09-12");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		//String nowDate = sdf.format(calendar.getTime());
@@ -80,10 +80,10 @@ public class QQQGSTester {
 						System.out.println(graphSegment.toString());
 		    		}
 					
-					/*List<IGraphSegment> interpretedGSs = gsInterpreter.interpretedGraphSegments(graphSegments);
+					List<IGraphSegment> interpretedGSs = gsInterpreter.interpretedGraphSegments(graphSegments);
 					for (IGraphSegment interpretedGS : interpretedGSs) {
 						System.out.println(interpretedGS.toString());
-		    		}*/
+		    		}
 				}
 			}
 			

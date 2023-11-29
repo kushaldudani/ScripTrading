@@ -50,9 +50,9 @@ public class MarketHistory {
 			InputStreamReader inputStreamReader = null;
 			BufferedReader bufferedReader = null;
 			Map<String, MinuteData> minuteDataMap = new LinkedHashMap<>();
-			long startTime = System.currentTimeMillis();
-			long currentTime = System.currentTimeMillis();
-			while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
+			//long startTime = System.currentTimeMillis();
+			//long currentTime = System.currentTimeMillis();
+			//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 			try{
 				// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
 				HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
@@ -63,11 +63,11 @@ public class MarketHistory {
 					LoggerUtil.getLogger().info("MarketHistory responseStatusCode 404 ");
 					//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 					//Thread.sleep(5000);
-					break;
+					//break;
 				}
-				if (responseStatusCode == 429) { // Too many requests
-					Thread.sleep(5000);
-				}
+				//if (responseStatusCode == 429) { // Too many requests
+					//Thread.sleep(5000);
+				//}
 				if(responseStatusCode == 500){
 					inputStreamReader = new InputStreamReader(response.getEntity().getContent());
 					bufferedReader = new BufferedReader(inputStreamReader);
@@ -76,7 +76,7 @@ public class MarketHistory {
 						System.out.println(line);
 						LoggerUtil.getLogger().info(line);
 					}
-					break;
+					//break;
 				}
 				if(responseStatusCode == 200){
 					inputStreamReader = new InputStreamReader(response.getEntity().getContent());
@@ -113,11 +113,6 @@ public class MarketHistory {
 			}catch(Exception e){
 				//e.printStackTrace();
 				LoggerUtil.getLogger().info(e.getMessage());
-				try {
-					Thread.sleep(5000);
-				} catch (Exception e1) {
-					//e1.printStackTrace();
-				}
 			}finally{
 				if(bufferedReader != null){
 					try {
@@ -130,8 +125,8 @@ public class MarketHistory {
 					} catch (Exception e) {}
 				}
 			}
-			currentTime = System.currentTimeMillis();
-			}
+			//currentTime = System.currentTimeMillis();
+			//}
 			
 			return minuteDataMap;
 		}

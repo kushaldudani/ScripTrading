@@ -41,7 +41,7 @@ public class ShortTrigger {
 		double closeAttime = minuteDataMap.get(triggerTime).getClosePrice();
 		double limitPrice = 0;
 		try {
-			boolean entrybool = bearEntry(minuteDataMap, 0.3, triggerTime, putVolumeSignal, strikePrice, 0, null);
+			boolean entrybool = bearEntry(minuteDataMap, 0.3, triggerTime, putVolumeSignal, strikePrice);
 			if (entrybool) {
 				limitPrice = closeAttime;
 			}
@@ -66,14 +66,13 @@ public class ShortTrigger {
 				notifyBuilder.append("stockEnter LMT Order Modified : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			}
 		} else {
-			LoggerUtil.getLogger().info("Stock Enter tried at " + triggerTime + " Close Price at that time " + closeAttime);
+			LoggerUtil.getLogger().info("ShortTrigger Stock Enter tried at " + triggerTime + " Close Price at that time " + closeAttime);
 			notifyBuilder.append("Stock Enter tried at " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 		}
 		
 	}
 	
-	private boolean bearEntry(Map<String, MinuteData> minuteDataMap, double ninetyPercentileBarChange, String triggerTime, LinkedList<String> putVolumeSignal, double strike,
-			double avgVix, Map<String, MinuteData> rawVixMap) {
+	private boolean bearEntry(Map<String, MinuteData> minuteDataMap, double ninetyPercentileBarChange, String triggerTime, LinkedList<String> putVolumeSignal, double strike) {
 		if (triggerTime.compareTo(startTime) > 0 && triggerTime.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -87,8 +86,7 @@ public class ShortTrigger {
 			GSInterpretation gsInterpretation = new GSInterpretation();
 			List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
 			if (
-					evaluateShort(ninetyPercentileBarChange, interpretedGSs, closeAttime, triggerTime, strike, avgVix, rawVixMap) &&
-					putVolumeSignal.size() > 0 && Util.diffTime(putVolumeSignal.peekLast(), triggerTime) <= 45
+					evaluateShort(ninetyPercentileBarChange, interpretedGSs, closeAttime, triggerTime, strike, putVolumeSignal)
 				) {
 				return true;
 			}
@@ -98,7 +96,7 @@ public class ShortTrigger {
 	}
 	
 	private boolean evaluateShort(double ninetyPercentileBarChange, List<IGraphSegment> interpretedGSs, double closeAtTime, String triggerTime, double strike,
-			double avgVix, Map<String, MinuteData> rawVixMap) {
+			LinkedList<String> optionVolumeSignalToUse) {
 		//double rawVix = rawVixMap.get("07:45").getClosePrice();
 		double strikeCutOff = strike;
 		int segmentsSize = interpretedGSs.size();
@@ -115,14 +113,15 @@ public class ShortTrigger {
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
 			//
-			if (lastIGS.identifier.equals("d")
-					&& (lowestStartU == null || lastIGS.endPrice < lowestStartU.startPrice)
+			if (lastIGS.identifier.equals("d") 
+					&& (lowestStartU == null || lastIGS.endPrice < lowestStartU.startPrice) 
 					&& closeAtTime <= lastIGS.endPrice
-					&& triggerTime.compareTo("07:45") >= 0
-					//&& (((rawVix - avgVix) / avgVix) * 100) <= 20
-					&& ( ( (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (3.3 * ninetyPercentileBarChange) && triggerTime.compareTo("09:15") <= 0 
-							/*&& (((rawVix - avgVix) / avgVix) * 100) <= 7*/   )
-					   || (strike > 0 && lastIGS.endPrice <= strikeCutOff) )
+					&& triggerTime.compareTo("07:40") >= 0 
+					&& ( ( triggerTime.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), triggerTime) <= 30) )
+						   || 
+						 ( triggerTime.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice <= strikeCutOff) ) 
+					   )
+					&& (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
 				) {
 				return true;
 			}
@@ -200,7 +199,7 @@ public class ShortTrigger {
 				notifyBuilder.append("optionEnter LMT Order Modified : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			}
 		} else {
-			LoggerUtil.getLogger().info("Option Enter tried at " + triggerTime + " Close Price at that time " + closeAttime);
+			LoggerUtil.getLogger().info("ShortTrigger Option Enter tried at " + triggerTime + " Close Price at that time " + closeAttime);
 			notifyBuilder.append("Option Enter tried at " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 		}
 		
@@ -208,7 +207,7 @@ public class ShortTrigger {
 	
 	
 	public void stockExit(Map<String, MinuteData> minuteDataMap, String triggerTime, TradeData tradedata, String currentDate,
-			String orderId, String executionInfo, StringBuilder notifyBuilder, boolean volumeSignal) {
+			String orderId, String executionInfo, StringBuilder notifyBuilder, double enterPrice) {
 		DecimalFormat decfor = new DecimalFormat("0.00");  
 		double closeAttime = minuteDataMap.get(triggerTime).getClosePrice();
 		List<GraphSegment> graphSegments = new ArrayList<>();
@@ -223,7 +222,9 @@ public class ShortTrigger {
 			}
 		
 			GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
-			if ((lastGS.identifier.equals("u") && closeAttime >= lastGS.endPrice && volumeSignal)) {
+			if ((lastGS.identifier.equals("u") && closeAttime >= lastGS.endPrice 
+					&& (((lastGS.endPrice - lastGS.startPrice) / lastGS.startPrice) * 100) > 0.5
+					&& (((enterPrice - closeAttime) / enterPrice) * 100) < -0.1 )) {
 				limitPrice = closeAttime;
 			}
 			
@@ -260,14 +261,14 @@ public class ShortTrigger {
 			} else {
 				if (!executionInfo.equals("MKT")) {
 					double prevLimitPrice = Double.parseDouble(executionInfo);
-					if (limitPrice > prevLimitPrice) {
+					if (limitPrice < prevLimitPrice) {
 						new Thread(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "BUY"), currentDate, "/home/kushaldudani/qqq2/positionexit.txt", ""+limitPrice, 0, orderId, 320227571)).start();
 						notifyBuilder.append("stockExit Order Modified with change in LMT price : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 					}
 				}
 			}
 		} else {
-			LoggerUtil.getLogger().info("Stock Exit tried at " + triggerTime + " Close Price at that time " + closeAttime);
+			LoggerUtil.getLogger().info("ShortTrigger Stock Exit tried at " + triggerTime + " Close Price at that time " + closeAttime);
 			notifyBuilder.append("Stock Exit tried at " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 		}
 	}

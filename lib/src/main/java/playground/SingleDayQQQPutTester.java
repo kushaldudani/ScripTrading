@@ -36,7 +36,7 @@ public class SingleDayQQQPutTester {
 		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
 		double percentHigherFactor = 0.009;
-		double priceLevelToPlaceOrder = (((closeAtTime - openAtTime) / openAtTime) * 100 > 0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
+		double priceLevelToPlaceOrder = (Math.abs(((closeAtTime - openAtTime) / openAtTime) * 100) > 0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
 		double targetedStrikePrice = ((int) (priceLevelToPlaceOrder - percentHigherFactor * priceLevelToPlaceOrder)) + 1;
 		
 		downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader);
@@ -56,7 +56,7 @@ public class SingleDayQQQPutTester {
 		int increment = 1;
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-11-17");
+		Date runDate = sdf.parse("2023-11-29");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();

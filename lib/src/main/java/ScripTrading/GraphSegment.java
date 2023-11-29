@@ -15,7 +15,9 @@ public class GraphSegment {
 	
 	public int barCount;
 	//public Map<String, Double> priceWithTime = new LinkedHashMap<>();
-	public LinkedList<GraphSegment> pullbackSegments = new LinkedList<>();
+	//public LinkedList<GraphSegment> pullbackSegments = new LinkedList<>();
+	public double maxPriceForC;
+	public double minPriceForC;
     
     
     

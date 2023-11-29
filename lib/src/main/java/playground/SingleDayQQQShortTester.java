@@ -58,7 +58,7 @@ public class SingleDayQQQShortTester {
 		int increment = 1;
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-11-17");
+		Date runDate = sdf.parse("2023-11-29");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -82,17 +82,17 @@ public class SingleDayQQQShortTester {
 			DayData dayData = dayDataMap.get(currentDateString);
 			
 			
-				String time = VolumeGraphPatternEntry.startTime;
+				String time = "06:45";//VolumeGraphPatternEntry.startTime;
 				double shortEnterPrice = 0.0; String shortEnterTime = null; String shortEnterString = "";
 				int noOfEntriesForBear = 0;
 				putVolumeSignal = new LinkedList<>();
-				//LinkedList<String> alternatePutVolumeSignal = new LinkedList<>();
-				//LinkedList<Double> putOptionQueue = new LinkedList<>();
-				//LinkedList<Double> alternatePutOptionQueue = new LinkedList<>();
+				LinkedList<String> hugePositiveBars = new LinkedList<>();
+				LinkedList<String> hugeNegativeBars = new LinkedList<>();
 				String strikeTime = null; double strike = 0; // Need to be updated with every run
 				double avgVix = 0; // Need to be fixed
 				Map<String, MinuteData> rawVix = null; // Need to be fixed
 				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {
+					VolumeGraphPatternEntry.calculateBarSizes(dayData, 0.3, time, hugePositiveBars, hugeNegativeBars);
 					double alternateStrike = getTargetedStrike(dayData, time);
 					//String key = currentDateString + "  " + time;
 					LinkedList<String> altPutVolumeSignal = new LinkedList<>();
@@ -120,7 +120,8 @@ public class SingleDayQQQShortTester {
 					}
 					
 					// Short Enter
-					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, altPutVolumeSignal, strike, avgVix, rawVix, alternateStrike);
+					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, altPutVolumeSignal, strike, avgVix, rawVix, alternateStrike,
+							hugePositiveBars, hugeNegativeBars);
 					if (returnedTime != null
 							&& shortEnterPrice == 0
 							&& noOfEntriesForBear == 0) {

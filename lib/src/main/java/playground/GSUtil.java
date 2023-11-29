@@ -37,12 +37,20 @@ public class GSUtil {
         	  String timeAtTCntr = Util.timeNMinsAgo(time, timeCntr);
         	  prevGS.endPrice = (priceWithTime.containsKey(timeAtTCntr)) ? priceWithTime.get(timeAtTCntr) : prevGS.endPrice;
         	  prevGS.endTime = (priceWithTime.containsKey(timeAtTCntr)) ? timeAtTCntr : time;
+        	  prevGS.maxPriceForC = prevGS.endPrice;
+        	  prevGS.minPriceForC = prevGS.endPrice;
         	  while (timeAtTCntr.compareTo(prevGS.startTime) > 0) {
         		  timeCntr = timeCntr + 5;
         		  timeAtTCntr = Util.timeNMinsAgo(time, timeCntr);
         		  if (priceWithTime.containsKey(timeAtTCntr) && priceWithTime.get(timeAtTCntr) < prevGS.endPrice) {
         			  prevGS.endPrice = priceWithTime.get(timeAtTCntr);
         			  prevGS.endTime = timeAtTCntr;
+        		  }
+        		  if (priceWithTime.containsKey(timeAtTCntr) && priceWithTime.get(timeAtTCntr) < prevGS.minPriceForC) {
+        			  prevGS.minPriceForC = priceWithTime.get(timeAtTCntr);
+        		  }
+        		  if (priceWithTime.containsKey(timeAtTCntr) && priceWithTime.get(timeAtTCntr) > prevGS.maxPriceForC) {
+        			  prevGS.maxPriceForC = priceWithTime.get(timeAtTCntr);
         		  }
         	  }
               if (((fiveMinClose - prevGS.endPrice) / prevGS.endPrice) * 100 > ninetyPercentileBarChange) {
@@ -168,12 +176,20 @@ public class GSUtil {
         	  String timeAtTCntr = Util.timeNMinsAgo(time, timeCntr);
         	  prevGS.endPrice = (priceWithTime.containsKey(timeAtTCntr)) ? priceWithTime.get(timeAtTCntr) : prevGS.endPrice;
         	  prevGS.endTime = (priceWithTime.containsKey(timeAtTCntr)) ? timeAtTCntr : time;
+        	  prevGS.maxPriceForC = prevGS.endPrice;
+        	  prevGS.minPriceForC = prevGS.endPrice;
         	  while (timeAtTCntr.compareTo(prevGS.startTime) > 0) {
         		  timeCntr = timeCntr + 5;
         		  timeAtTCntr = Util.timeNMinsAgo(time, timeCntr);
         		  if (priceWithTime.containsKey(timeAtTCntr) && priceWithTime.get(timeAtTCntr) > prevGS.endPrice) {
         			  prevGS.endPrice = priceWithTime.get(timeAtTCntr);
         			  prevGS.endTime = timeAtTCntr;
+        		  }
+        		  if (priceWithTime.containsKey(timeAtTCntr) && priceWithTime.get(timeAtTCntr) < prevGS.minPriceForC) {
+        			  prevGS.minPriceForC = priceWithTime.get(timeAtTCntr);
+        		  }
+        		  if (priceWithTime.containsKey(timeAtTCntr) && priceWithTime.get(timeAtTCntr) > prevGS.maxPriceForC) {
+        			  prevGS.maxPriceForC = priceWithTime.get(timeAtTCntr);
         		  }
         	  }
               if (((prevGS.endPrice - fiveMinClose) / prevGS.endPrice) * 100 > ninetyPercentileBarChange) {

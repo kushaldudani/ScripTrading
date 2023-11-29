@@ -27,6 +27,35 @@ public class QQQCallTester {
 	
 	// {"MSFT":[{"name":"MICROSOFT CORP","chineseName":"&#x5FAE;&#x8F6F;&#x516C;&#x53F8;","assetClass":"STK","contracts":[{"conid":272093,"exchange":"NASDAQ","isUS":true},{"conid":38708990,"exchange":"MEXI","isUS":false},{"conid":415569505,"exchange":"EBS","isUS":false}]},{"name":"LS 1X MSFT","chineseName":null,"assetClass":"STK","contracts":[{"conid":493546075,"exchange":"LSEETF","isUS":false}]},{"name":"MICROSOFT CORP-CDR","chineseName":"&#x5FAE;&#x8F6F;&#x516C;&#x53F8;","assetClass":"STK","contracts":[{"conid":518938052,"exchange":"AEQLIT","isUS":false}]}]}
 	
+	private static void calculateOptionVolumeSig(LinkedList<Double> alternateOptionQueue, LinkedList<String> altVolumeSignal, double altStrike, String time, DayData dayData) {
+		String timeCnr = "06:30";
+		while (timeCnr.compareTo(time) <= 0) {
+			double alternateoptionVolumeAtTime = 0;
+			if (dayData.getCallDataMap().get(altStrike).containsKey(timeCnr)) {
+				alternateoptionVolumeAtTime = dayData.getCallDataMap().get(altStrike).get(timeCnr).getVolume();
+			}
+			
+			double alternateCallAvgVolume = 0;
+			Iterator<Double> queueIterator = alternateOptionQueue.iterator();
+			int queueCount = 0; int maxCount = 9;
+			while (queueCount < maxCount && queueIterator.hasNext()) {
+				alternateCallAvgVolume = alternateCallAvgVolume + queueIterator.next();
+				queueCount++;
+			}
+			alternateCallAvgVolume = (queueCount > 0) ? (alternateCallAvgVolume / queueCount) : 0;
+			
+			if (alternateCallAvgVolume > 0 && alternateoptionVolumeAtTime > (3 * alternateCallAvgVolume) ) {
+				altVolumeSignal.add(timeCnr);
+			}
+			
+			if (alternateoptionVolumeAtTime > 0) {
+				alternateOptionQueue.addFirst(alternateoptionVolumeAtTime);
+			}
+			
+			timeCnr = Util.timeNMinsAgo(timeCnr, -5);
+		}
+	}
+	
 	private static boolean downloadOptionData(double strikePrice, String currentDateString, DayData dayData, Downloader downloader, boolean downloadedMoreData) {
 		if (!dayData.getCallDataMap().containsKey(strikePrice)) {
 			String expiryString = currentDateString.substring(2, 4) + currentDateString.substring(5, 7) + currentDateString.substring(8, 10);
@@ -69,7 +98,7 @@ public class QQQCallTester {
 		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
 		double percentHigherFactor = (time.compareTo("08:45") <= 0) ? 0.009 : 0.009;
-		double priceLevelToPlaceOrder = (((closeAtTime - openAtTime) / openAtTime) * 100 < -0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
+		double priceLevelToPlaceOrder = (Math.abs(((closeAtTime - openAtTime) / openAtTime) * 100) > 0.2) ? (closeAtTime + openAtTime) / 2 : closeAtTime;
 		double targetedStrikePrice = ((int) (priceLevelToPlaceOrder + percentHigherFactor * priceLevelToPlaceOrder));
 		
 		return targetedStrikePrice;
@@ -96,16 +125,17 @@ public class QQQCallTester {
 		callPriceTotarget = callPriceTotarget * 1.1;
 		
 		/*double premiumPercent = ((callPriceTotarget / closeAtTime) * 100);
-		if (premiumPercent < 0.05 && upRelativeToOpen == false) {
+		if (premiumPercent < 0.04) {
 			targetedStrikePrice = targetedStrikePrice - 1;
 			downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
-			if (dayData.getCallDataMap().get(targetedStrikePrice).containsKey(prevStaggeredTime)) {
-				callPriceTotarget = dayData.getCallDataMap().get(targetedStrikePrice).get(prevStaggeredTime).getClosePrice();
+			if (dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time)) {
+				callPriceTotarget = dayData.getCallDataMap().get(targetedStrikePrice).get(time).getClosePrice();
 			}
 			callPriceTotarget = callPriceTotarget * 1.1;
 		}*/
 		
 		callPriceTotarget = Math.max(callPriceTotarget, ((0.05 * closeAtTime) / 100));
+		//callPriceTotarget = callPriceTotarget + ((0.02 * closeAtTime) / 100);
 		
 		return new StrikeWithPrice(targetedStrikePrice, callPriceTotarget, downloadedMoreData);
 	}
@@ -180,6 +210,7 @@ public class QQQCallTester {
 			double strikePrice = 0;//((int) (closeAtStartTime + 0.01 * closeAtStartTime));
 			boolean uSignal = true;
 			double soldCallPrice = 0;
+			String lastGSIdAtStartTime = null;
 			//double dayopen = dayData.getMinuteDataMap().get("06:30").getOpenPrice();
 			//boolean upRelativeToOpen = (dayData.getMinuteDataMap().get(startTime).getClosePrice() >= dayopen);
 			//String prevStaggeredTime = startTime;
@@ -190,12 +221,13 @@ public class QQQCallTester {
 			double prevTargetedStrikePrice = 0;
 			//downloadedMoreData = swp.downloadedMoreData;
 			double callPriceTotarget = 0;//swp.price;
+			//LinkedList<String> altCallVolumeSignal = new LinkedList<>();
 			for (String time : dayData.getMinuteDataMap().keySet()) {
 				if (callPriceTotarget > 0 
 						&& dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time) 
 						&& dayData.getCallDataMap().get(targetedStrikePrice).get(time).getHighPrice() >= callPriceTotarget
 						&& uSignal == false//!lastGS.identifier.equals("u") //|| doesGSHasAnyDorDr(graphSegments))
-						//&& !lastGS.identifier.equals("ur")
+						//&& (altCallVolumeSignal.size() > 0 && Util.diffTime(altCallVolumeSignal.peekLast(), time) <= 30)
 					) {
 					strikePrice = targetedStrikePrice;
 					optionSellingTime = time;
@@ -203,15 +235,41 @@ public class QQQCallTester {
 					break;
 				}
 				
+				/*altCallVolumeSignal = new LinkedList<>();
+				double alternateStrike = getTargetedStrike(dayData, time);
+				if (time.compareTo("06:45") >= 0) {
+					LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
+					//downloadedMoreData = downloadOptionData(alternateStrike - 1, currentDateString, dayData, downloader, downloadedMoreData);
+					//calculateOptionVolumeSig(alternateCallOptionQueue, altCallVolumeSignal, alternateStrike - 1, time, dayData);
+					
+					alternateCallOptionQueue = new LinkedList<>();
+					downloadedMoreData = downloadOptionData(alternateStrike, currentDateString, dayData, downloader, downloadedMoreData);
+					calculateOptionVolumeSig(alternateCallOptionQueue, altCallVolumeSignal, alternateStrike, time, dayData);
+					
+					alternateCallOptionQueue = new LinkedList<>();
+					downloadedMoreData = downloadOptionData(alternateStrike + 1, currentDateString, dayData, downloader, downloadedMoreData);
+					calculateOptionVolumeSig(alternateCallOptionQueue, altCallVolumeSignal, alternateStrike + 1, time, dayData);
+					
+					altCallVolumeSignal.sort(String::compareToIgnoreCase);
+					//System.out.println("altCallVolumeSignal " + altCallVolumeSignal);
+				}*/
+				
 				GSUtil.calculateGraphSegments(graphSegments, dayData.getMinuteDataMap().get(time).getVolume(),
 						dayData.getMinuteDataMap().get(time).getOpenPrice(), dayData.getMinuteDataMap().get(time).getClosePrice(),
 						dayData.getMinuteDataMap().get(time).getHighPrice(), dayData.getMinuteDataMap().get(time).getLowPrice(),
 						time, ninetyPercentileBarChange, priceWithTime);
 				//List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
-				if (time.compareTo(startTime) >= 0 && time.compareTo(midTime) < 0) {
+				if (time.compareTo(startTime) >= 0 && time.compareTo(midTime) < 0 ) {
 					GraphSegment lastGS = graphSegments.get(graphSegments.size() - 1);
+					//if (lastGSIdAtStartTime == null) {
+					//	lastGSIdAtStartTime = lastGS.identifier;
+					//}
 					//System.out.println(time);
-					if (!lastGS.identifier.equals("u") && time.compareTo(startTime) >= 0) {
+					//if ( (lastGS.identifier.equals("d") || lastGS.identifier.equals("ur") /*|| lastGS.identifier.equals("dr")*/ ) && time.compareTo(startTime) >= 0) {
+					//if ( (!lastGSIdAtStartTime.equals("u") && !lastGSIdAtStartTime.equals("d")) || 
+					//		(lastGSIdAtStartTime.equals("u") && !lastGS.identifier.equals(lastGSIdAtStartTime)) ||
+					//		(lastGSIdAtStartTime.equals("d") && !lastGS.identifier.equals(lastGSIdAtStartTime)) ) {
+					if ( (!lastGS.identifier.equals("u")) && time.compareTo(startTime) >= 0) {
 						uSignal = false;
 					}
 					
@@ -278,11 +336,12 @@ public class QQQCallTester {
 				continue;
 			}
 			
-			volatilityQueue.add(totalOptionPriceAtStartTime);
-			if (volatilityQueue.size() > 30) {
-				volatilityQueue.poll();
+			if (avgVolatility == 0 || totalOptionPriceAtStartTime < (1.66 * avgVolatility)) {
+				volatilityQueue.add(totalOptionPriceAtStartTime);
+				if (volatilityQueue.size() > 30) {
+					volatilityQueue.poll();
+				}
 			}
-			
 			/*double avgVix = vixAvgMap.get(currentDateString);
 			Map<String, MinuteData> rawVixMap = vixRawData.get(currentDateString);
 			double rawVix = rawVixMap.get(startTime).getClosePrice();
@@ -296,7 +355,7 @@ public class QQQCallTester {
 			if (strikePrice == 0) {
 				calendar.add(Calendar.DATE, 1);
 		        currentDate = calendar.getTime();
-		        System.out.println(currentDateString + " Did not process as no entry");
+		        //System.out.println(currentDateString + " Did not process as no entry");
 		        prevClosePrice = (dayData.getMinuteDataMap().containsKey("12:55")) ? dayData.getMinuteDataMap().get("12:55").getClosePrice() : 0;
 		        if (downloadedMoreData) {
 					Util.serializeHashMap(dayDataMap, "config/QQQ.txt");
@@ -328,7 +387,9 @@ public class QQQCallTester {
 			
 			String closedPriceTime = null; //String lossTime = null;
 			double closedThreshold = 0.005; //double lossThreshold = 0;
+			String shouldAddStopLossAtTime = null;
 			//double cutOffPrice = strikePrice + (0.002 * strikePrice);
+			LinkedList<String> altCallVolumeSignal = new LinkedList<>();
 			for (String time : dayData.getMinuteDataMap().keySet()) {
 				if (time.compareTo(optionSellingTime) > 0 && time.compareTo(closeTime) < 0) {
 					/*if (lossThreshold > 0 && currentProfitPercent <= lossThreshold) {
@@ -338,14 +399,32 @@ public class QQQCallTester {
 					if (!dayData.getCallDataMap().get(strikePrice).containsKey(time)) {
 						continue;
 					}
+					
+					/*if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - strikePrice) / strikePrice) * 100) > 0 
+							  && (altCallVolumeSignal.size() > 0 && Util.diffTime(altCallVolumeSignal.peekLast(), time) <= 5
+							  && time.compareTo("09:00") <= 0) ) {
+						shouldAddStopLossAtTime = time;
+						break;
+					}*/
+					
 					double currrentCallPriceAtStrike = dayData.getCallDataMap().get(strikePrice).get(time).getLowPrice();
 					double currentProfitPercent = ((currrentCallPriceAtStrike / optionSellingTimePrice) * 100);
 					if (currentProfitPercent <= closedThreshold) {
 						closedPriceTime = time;
 						break;
 					}
-					/*if (dayData.getMinuteDataMap().get(time).getClosePrice() >= cutOffPrice && lossThreshold == 0) {
-						lossThreshold = (dayData.getCallDataMap().get(strikePrice).get(time).getClosePrice() / optionSellingTimePrice) * 100;
+					
+					/*altCallVolumeSignal = new LinkedList<>();
+					if (time.compareTo("06:45") >= 0) {
+						LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
+						
+						alternateCallOptionQueue = new LinkedList<>();
+						downloadedMoreData = downloadOptionData(strikePrice, currentDateString, dayData, downloader, downloadedMoreData);
+						calculateOptionVolumeSig(alternateCallOptionQueue, altCallVolumeSignal, strikePrice, time, dayData);
+						
+						
+						altCallVolumeSignal.sort(String::compareToIgnoreCase);
+						//System.out.println("altCallVolumeSignal " + altCallVolumeSignal);
 					}*/
 				}
 			}
@@ -466,7 +545,7 @@ public class QQQCallTester {
 					sumProfitPcntWithLoss = sumProfitPcntWithLoss + profitPcnt;
 		        }*/ else {
 					problemCases++;
-					rollBackTime = closeTime;
+					rollBackTime = closeTime;//(shouldAddStopLossAtTime != null) ? shouldAddStopLossAtTime : closeTime;
 					double callbuybackprice = 0;
 					if (dayData.getCallDataMap().get(strikePrice).containsKey(rollBackTime)) {
 						callbuybackprice = dayData.getCallDataMap().get(strikePrice).get(rollBackTime).getClosePrice();
@@ -496,13 +575,13 @@ public class QQQCallTester {
 					//sumExperimentProfitPcnt = sumExperimentProfitPcnt + profitPcnt;
 					//sumExperimentPremiumPcnt = sumExperimentPremiumPcnt + premiumPercent;
 				allCases.put(currentDateString + "  " + optionSellingTime, strikePrice);
-				if (premiumPercent >= 0.09) {	
+				//if (shouldAddStopLossAtTime != null) {	
 					
 					System.out.println(rowToWrite);
 					experimentCasesSubset++;
 					sumExperimentProfitPcnt = sumExperimentProfitPcnt + profitPcnt;
 					sumExperimentPremiumPcnt = sumExperimentPremiumPcnt + premiumPercent;
-				}
+				//}
 					//System.out.println(currentDateString + "  " + totalOptionPriceAtStartTime + "  " + avgVolatility + "  " + optionSellingTimePrice + "  " + strikePrice + "  " + optionSellingTime + "  " + rollBackTime + "  " + dayData.getMinuteDataMap().get(closeTime).getClosePrice() + "  " + profitPcnt);
 				//}
 				//System.out.println(profitPcnt);
@@ -607,8 +686,8 @@ public class QQQCallTester {
 /*
 
 Loss due to rollback option selling at the end of the day 13.979537490733382  71
-Loss due to rollback option selling with Limit order 0.6200000000000004
-Total Days 195
-Profit from Premium selling 20.546904379446254
+Loss due to rollback option selling with Limit order 0.6250000000000004
+Total Days 196
+Profit from Premium selling 20.607496454110418
 
  */

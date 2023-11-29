@@ -23,10 +23,10 @@ public class ShortOrderTracker implements Runnable {
 	private Map<Double, String> strikeToEnterOrderMap = null;
 	private TradeConfirmation optiontradeconfirmation = null;
 	private TradeConfirmation stocktradeconfirmation = null;
+	private TradeConfirmation stockexittradeconfirmation = null;
 	private Set<String> timeTracker = new HashSet<>();
 	private double volatility = 0;
-	private String startTime = "07:15";
-	private double altStrike = 0;
+	private String startTime = "07:10";
 	
 	public ShortOrderTracker(Map<String, MinuteData> minuteDataMap, Map<String, String> notifictionMap) {
 		this.minuteDataMap = minuteDataMap;
@@ -58,6 +58,7 @@ public class ShortOrderTracker implements Runnable {
 					double avgVolatility = MetadataUtil.getInstance().readVolatilityData();
 					optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/optiontradeconfirmation.txt");
 					stocktradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/stocktradeconfirmation.txt");
+					stockexittradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/stockexittradeconfirmation.txt");
 					tradedata = MetadataUtil.getInstance().readTradeData("/home/kushaldudani/qqq2/metadata.txt");
 					strikeToEnterOrderMap = MetadataUtil.getInstance().readStrikeEnterOrderMap(currentDateString, "/home/kushaldudani/qqq2/strikeenterordermap.txt");
 					optionEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq2/optionenter.txt");
@@ -80,38 +81,35 @@ public class ShortOrderTracker implements Runnable {
 						}
 					}
 					
-					if (altStrike == 0 && timeToTrigger.compareTo("07:20") >= 0) {
-						altStrike = getTargetedStrikePrice("07:20");
-					}
-					
 					// option enter
 					if ((optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)
 							&& volatility < (1.66 * avgVolatility) && tradedata != null) {
 						double closeAttime = minuteDataMap.get(timeToTrigger).getClosePrice();
 						double targetedStrikePrice = getTargetedStrikePrice(timeToTrigger);
 						double putPriceTotarget = 0.0;
-						MinuteData mData = new PolygonMarketHistory().data(currentDateString, targetedStrikePrice, "P").get(timeToTrigger);
+						MinuteData mData = new PolygonMarketHistory().dataWithRetries(currentDateString, targetedStrikePrice, "P").get(timeToTrigger);
 						if (mData != null) {
 							putPriceTotarget = mData.getClosePrice();
-							LoggerUtil.getLogger().info(timeToTrigger + " Put Price at " + targetedStrikePrice + "  " + putPriceTotarget);
+							LoggerUtil.getLogger().info("ShortOrderTracker " + timeToTrigger + " Put Price at " + targetedStrikePrice + "  " + putPriceTotarget);
 							notifyBuilder.append(timeToTrigger + " Put Price at " + targetedStrikePrice + "  " + putPriceTotarget + "<br>");
+							
+							putPriceTotarget = putPriceTotarget * 1.1;
+							putPriceTotarget = Math.max(putPriceTotarget, ((0.05 * closeAttime) / 100));
 						}
-						putPriceTotarget = putPriceTotarget * 1.1;
-						putPriceTotarget = Math.max(putPriceTotarget, ((0.05 * closeAttime) / 100));
 						
 						String orderId = "";
 						if (optionEnterTrade != null && !optionEnterTrade.getOrderId().equals("") && !optionEnterTrade.getOrderId().equals("na")) {
 							orderId = optionEnterTrade.getOrderId();
 						}
 						
-						if (!strikeToConId.containsKey(targetedStrikePrice)) {
-							long fetchedOptionId = new ContractSearcher().search("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, targetedStrikePrice, monthString, timeToTrigger, "P");
+						if (targetedStrikePrice > 0 && !strikeToConId.containsKey(targetedStrikePrice)) {
+							long fetchedOptionId = new ContractSearcher().searchWithTries("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, targetedStrikePrice, monthString, timeToTrigger, "P");
 							if (fetchedOptionId > 0) {
 								strikeToConId.put(targetedStrikePrice, fetchedOptionId);
 							}
 						}
 						
-						if (targetedStrikePrice > 0 && putPriceTotarget > 0) {
+						if (targetedStrikePrice > 0 && putPriceTotarget > 0 && strikeToConId.containsKey(targetedStrikePrice)) {
 							trigger.optionEnter(minuteDataMap, timeToTrigger, targetedStrikePrice, currentDateString, strikeToConId.get(targetedStrikePrice), notifyBuilder, putPriceTotarget, orderId, tradedata,
 									strikeToEnterOrderMap);
 						}
@@ -125,29 +123,30 @@ public class ShortOrderTracker implements Runnable {
 						if (stockEnterTrade != null && !stockEnterTrade.getOrderId().equals("") && !stockEnterTrade.getOrderId().equals("na")) {
 							orderId = stockEnterTrade.getOrderId();
 						}
-						double strikeToUse = 0;
-						String timeCntr = null;
-						if (altStrike > 0) {
-							if (optiontradeconfirmation.getStrike() == altStrike) {
-								strikeToUse = optiontradeconfirmation.getStrike();
-								timeCntr = optiontradeconfirmation.getTradeTime();
-							} else if (optiontradeconfirmation.getStrike() == 0) {
-								strikeToUse = altStrike;
-								timeCntr = "07:20";
-							} else {
-								strikeToUse = (optiontradeconfirmation.getStrike() < altStrike) ? altStrike : optiontradeconfirmation.getStrike();
-								timeCntr = (optiontradeconfirmation.getStrike() < altStrike) ? "07:20" : optiontradeconfirmation.getTradeTime();
-							}
-						}
+						
 						LinkedList<String> putVolumeSignal = new LinkedList<>();
-						LinkedList<Double> putOptionQueue = new LinkedList<>();
-						double avgOptionVolume = 0;
-						if (strikeToUse > 0) {
-							Map<String, MinuteData> mDataMap = new PolygonMarketHistory().data(currentDateString, strikeToUse, "P");
-							avgOptionVolume = calculatePutVolumeSignal(putVolumeSignal, putOptionQueue, timeCntr, timeToTrigger, mDataMap);
+						if (timeToTrigger.compareTo("07:20") >= 0 && timeToTrigger.compareTo("08:55") <= 0) {
+							double strikeUsed = getTargetedStrikePrice(timeToTrigger);
+							LoggerUtil.getLogger().info("ShortOrderTracker " + timeToTrigger + " StockEnter Strike to do volume calc " + strikeUsed);
+						
+							LinkedList<Double> putOptionQueue = new LinkedList<>();
+							Map<String, MinuteData> mDataMap = new PolygonMarketHistory().dataWithRetries(currentDateString, strikeUsed, "P");
+							calculatePutVolumeSignal(putVolumeSignal, putOptionQueue, timeToTrigger, mDataMap);
+							notifyBuilder.append("StockEnter Info : Put Volume Queue " + putOptionQueue + " StrikeUsed " + strikeUsed + "<br>");
+							
+							putOptionQueue = new LinkedList<>();
+							mDataMap = new PolygonMarketHistory().dataWithRetries(currentDateString, strikeUsed + 1, "P");
+							calculatePutVolumeSignal(putVolumeSignal, putOptionQueue, timeToTrigger, mDataMap);
+							notifyBuilder.append("StockEnter Info : Put Volume Queue " + putOptionQueue + " StrikeUsed " + (strikeUsed + 1) + "<br>");
+							
+							putOptionQueue = new LinkedList<>();
+							mDataMap = new PolygonMarketHistory().dataWithRetries(currentDateString, strikeUsed - 1, "P");
+							calculatePutVolumeSignal(putVolumeSignal, putOptionQueue, timeToTrigger, mDataMap);
+							notifyBuilder.append("StockEnter Info : Put Volume Queue " + putOptionQueue + " StrikeUsed " + (strikeUsed - 1) + "<br>");
+							
+							putVolumeSignal.sort(String::compareToIgnoreCase);
 						}
-						notifyBuilder.append("StockEnter Info : Put Volume Signal " + putVolumeSignal + " StrikeToUse " + strikeToUse + " timeCntr " + timeCntr + "<br>");
-						notifyBuilder.append("StockEnter Info : Put Volume Queue " + putOptionQueue + " Avg " + avgOptionVolume + "<br>");
+						notifyBuilder.append("StockEnter Info : Put Volume Signal " + putVolumeSignal + "<br>");
 						
 						trigger.stockEnter(minuteDataMap, timeToTrigger, tradedata, currentDateString, notifyBuilder, orderId, putVolumeSignal, optiontradeconfirmation.getStrike(), stockEnterTrade.getExecutionInfo());
 					}
@@ -155,28 +154,31 @@ public class ShortOrderTracker implements Runnable {
 					if (tradedata != null && optiontradeconfirmation != null && optiontradeconfirmation.getHasOrderFilled()
 							&& (optionExitTrade == null || !optionExitTrade.getExecutionInfo().equals("inprogress"))) {
 						double enteredStrike = optiontradeconfirmation.getStrike();
-						MinuteData mData = new PolygonMarketHistory().data(currentDateString, enteredStrike, "P").get(timeToTrigger);
-						if (mData != null) {
-							LoggerUtil.getLogger().info(timeToTrigger + " In optionExit, Put Price at " + enteredStrike + "  " + mData.getClosePrice());
-							notifyBuilder.append(timeToTrigger + " In optionExit, Put Price at " + enteredStrike + "  " + mData.getClosePrice() + "<br>");
-						}
+						//MinuteData mData = new PolygonMarketHistory().data(currentDateString, enteredStrike, "P").get(timeToTrigger);
+						//if (mData != null) {
+						//	LoggerUtil.getLogger().info("ShortOrderTracker " + timeToTrigger + " In optionExit, Put Price at " + enteredStrike + "  " + mData.getClosePrice());
+						//	notifyBuilder.append(timeToTrigger + " In optionExit, Put Price at " + enteredStrike + "  " + mData.getClosePrice() + "<br>");
+						//}
 							
 						String orderId = "";
 						if (optionExitTrade != null && !optionExitTrade.getOrderId().equals("") && !optionExitTrade.getOrderId().equals("na")) {
 							orderId = optionExitTrade.getOrderId();
 						}
 						
-						if (!strikeToConId.containsKey(enteredStrike)) {
-							long fetchedOptionId = new ContractSearcher().search("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, enteredStrike, monthString, timeToTrigger, "P");
+						if (enteredStrike > 0 && !strikeToConId.containsKey(enteredStrike)) {
+							long fetchedOptionId = new ContractSearcher().searchWithTries("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, enteredStrike, monthString, timeToTrigger, "P");
 							if (fetchedOptionId > 0) {
 								strikeToConId.put(enteredStrike, fetchedOptionId);
 							}
 						}
-							
-						trigger.optionExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, strikeToConId.get(enteredStrike), notifyBuilder, orderId, optionExitTrade.getExecutionInfo(), enteredStrike);
+						
+						if (strikeToConId.containsKey(enteredStrike)) {
+							trigger.optionExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, strikeToConId.get(enteredStrike), notifyBuilder, orderId, optionExitTrade.getExecutionInfo(), enteredStrike);
+						}
 					}
 					// stock exit
 					if (tradedata != null && stocktradeconfirmation != null && stocktradeconfirmation.getHasOrderFilled()
+							&& (stockexittradeconfirmation == null || stockexittradeconfirmation.getHasOrderFilled() == false)
 							&& (stockExitTrade == null || !stockExitTrade.getExecutionInfo().equals("inprogress")) ) {
 						
 						String orderId = "";
@@ -184,22 +186,9 @@ public class ShortOrderTracker implements Runnable {
 							orderId = stockExitTrade.getOrderId();
 						}
 						
-						double sumVolume = 0; int cntr = 0;
-						String timeCntr = Util.timeNMinsAgo(timeToTrigger, 45);
-						while (timeCntr.compareTo(timeToTrigger) < 0) {
-							double volm = minuteDataMap.get(timeCntr).getVolume();
-							sumVolume = sumVolume + volm;
-							cntr++;
-							timeCntr = Util.timeNMinsAgo(timeCntr, -5);
-						}
-						double avgVolume = (sumVolume / cntr);
-						boolean volumeSignal = false;
-						if (minuteDataMap.get(timeToTrigger).getVolume() > 2.25 * avgVolume) {
-							volumeSignal = true;
-						}
-						notifyBuilder.append("StockExit Info : Avg Volume " + avgVolume + " Current Volume " + minuteDataMap.get(timeToTrigger).getVolume() + "<br>");
+						double enterPrice = Double.parseDouble(stockEnterTrade.getExecutionInfo());
 						
-						trigger.stockExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, orderId, stockExitTrade.getExecutionInfo(), notifyBuilder, volumeSignal);
+						trigger.stockExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, orderId, stockExitTrade.getExecutionInfo(), notifyBuilder, enterPrice);
 					}
 					
 					timeTracker.add(timeToTrigger);
@@ -224,14 +213,15 @@ public class ShortOrderTracker implements Runnable {
 		double closeAttime = minuteDataMap.get(timeToFetch).getClosePrice();
 		double openAtTime = minuteDataMap.get(timeToFetch).getOpenPrice();
 		double percentHigherFactor = 0.009;
-		double priceLevelToPlaceOrder = (((closeAttime - openAtTime) / openAtTime) * 100 > 0.2) ? (closeAttime + openAtTime) / 2 : closeAttime;
+		double priceLevelToPlaceOrder = (Math.abs(((closeAttime - openAtTime) / openAtTime) * 100) > 0.2) ? (closeAttime + openAtTime) / 2 : closeAttime;
 		double targetedStrikePrice = ((int) (priceLevelToPlaceOrder - percentHigherFactor * priceLevelToPlaceOrder)) + 1;
 		
 		return targetedStrikePrice;
 	}
 	
-	private double calculatePutVolumeSignal(LinkedList<String> putVolumeSignal, LinkedList<Double> putOptionQueue, String timeCntr, String timeToTrigger,
+	private void calculatePutVolumeSignal(LinkedList<String> putVolumeSignal, LinkedList<Double> putOptionQueue, String timeToTrigger,
 			Map<String, MinuteData> mDataMap) {
+		String timeCntr = "07:20";
 		double avgOptionVolume = 0;
 		while (timeCntr.compareTo(timeToTrigger) <= 0) {
 			double optionVolumeAtTime = 0;
@@ -250,7 +240,7 @@ public class ShortOrderTracker implements Runnable {
 			}
 			avgOptionVolume = (queueCount > 0) ? (avgOptionVolume / queueCount) : 0;
 			//
-			if (avgOptionVolume > 0 && optionVolumeAtTime > (2.8 * avgOptionVolume) ) {
+			if (avgOptionVolume > 0 && optionVolumeAtTime > (3 * avgOptionVolume) ) {
 				putVolumeSignal.add(timeCntr);
 			}
 			if (optionVolumeAtTime > 0) {
@@ -260,7 +250,7 @@ public class ShortOrderTracker implements Runnable {
 			timeCntr = Util.timeNMinsAgo(timeCntr, -5);
 		}
 		
-		return avgOptionVolume;
+		return;
 	}
 	
 	private double calculateVolatility(double closeAtStartTime, String currentDateString, String triggerTime, String monthString) {
@@ -268,14 +258,14 @@ public class ShortOrderTracker implements Runnable {
 		
 		double closeAtStartTimeFloor = (int) closeAtStartTime;
 		
-		long conId = new ContractSearcher().search("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "C");
+		long conId = new ContractSearcher().searchWithTries("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "C");
 		if (conId > 0) {
 			MinuteData mData = new MarketHistory().data("https://localhost:5000/v1/api/iserver/marketdata/history", conId, "&exchange=CBOE", "1d", "5min").get(startTime);
 			if (mData != null) {
 				volatility = volatility + mData.getClosePrice();
 			}
 		}
-		conId = new ContractSearcher().search("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "P");
+		conId = new ContractSearcher().searchWithTries("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "P");
 		if (conId > 0) {
 			MinuteData mData = new MarketHistory().data("https://localhost:5000/v1/api/iserver/marketdata/history", conId, "&exchange=CBOE", "1d", "5min").get(startTime);
 			if (mData != null) {
@@ -285,14 +275,14 @@ public class ShortOrderTracker implements Runnable {
 		
 		closeAtStartTimeFloor = closeAtStartTimeFloor + 1;
 		
-		conId = new ContractSearcher().search("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "C");
+		conId = new ContractSearcher().searchWithTries("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "C");
 		if (conId > 0) {
 			MinuteData mData = new MarketHistory().data("https://localhost:5000/v1/api/iserver/marketdata/history", conId, "&exchange=CBOE", "1d", "5min").get(startTime);
 			if (mData != null) {
 				volatility = volatility + mData.getClosePrice();
 			}
 		}
-		conId = new ContractSearcher().search("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "P");
+		conId = new ContractSearcher().searchWithTries("https://localhost:5000/v1/api/iserver/secdef/info", currentDateString, closeAtStartTimeFloor, monthString, triggerTime, "P");
 		if (conId > 0) {
 			MinuteData mData = new MarketHistory().data("https://localhost:5000/v1/api/iserver/marketdata/history", conId, "&exchange=CBOE", "1d", "5min").get(startTime);
 			if (mData != null) {
