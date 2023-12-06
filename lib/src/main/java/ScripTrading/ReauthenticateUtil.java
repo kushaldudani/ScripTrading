@@ -11,6 +11,10 @@ import org.apache.http.impl.client.HttpClientBuilder;
 
 public class ReauthenticateUtil {
 	
+	public static void main(String[] args) {
+		new ReauthenticateUtil().reauth();
+	}
+	
 	private HttpClient client;
 
 	
@@ -31,8 +35,8 @@ public class ReauthenticateUtil {
 			System.out.println(response.getStatusLine());
 			responseStatusCode = response.getStatusLine().getStatusCode();
 			if (responseStatusCode == 404) {
-				System.out.println("tickle responseStatusCode 404 ");
-				LoggerUtil.getLogger().info("tickle responseStatusCode 404 ");
+				System.out.println("reauth responseStatusCode 404 ");
+				LoggerUtil.getLogger().info("reauth responseStatusCode 404 ");
 				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
 				//Thread.sleep(5000);
 				

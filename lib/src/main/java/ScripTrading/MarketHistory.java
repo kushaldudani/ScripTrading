@@ -43,7 +43,7 @@ public class MarketHistory {
 			SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
 	        Calendar calendar = Calendar.getInstance();
 	        calendar.setTimeInMillis(System.currentTimeMillis());
-	        Util.reauthIfNeeded(TickleMapProvider.getInstance().getTickleMap(), simpleDateFormat.format(calendar.getTime()));
+	        //Util.reauthIfNeeded(TickleMapProvider.getInstance().getTickleMap(), simpleDateFormat.format(calendar.getTime()));
 			
 	        String paramString = getParamString(cId, exchangeInfo, period, bar);
 			int responseStatusCode = 0;

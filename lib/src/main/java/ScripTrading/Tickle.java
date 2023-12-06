@@ -16,9 +16,9 @@ public class Tickle {
 	public static void main(String[] args) {
 		Tickle cs = new Tickle();
 		
-		//cs.tickle();
-		cs.accountPing();
-		//System.out.println(minuteDataMap);
+		boolean isAuthenticated = cs.tickle();
+		//cs.accountPing();
+		System.out.println(isAuthenticated);
 	}
 	
 	
@@ -31,9 +31,9 @@ public class Tickle {
 	}
 	
 	
-	String tickle(){
+	boolean tickle(){
 		String baseUrl = "https://localhost:5000/v1/api/tickle";
-		String sessionId = "";
+		boolean isAuthenticated = false;
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
@@ -72,7 +72,14 @@ public class Tickle {
 					JSONParser parser = new JSONParser(); 
 					JSONObject jsonObject = (JSONObject) parser.parse(line);
 					
-					sessionId = (String) jsonObject.get("session");
+					//sessionId = (String) jsonObject.get("session");
+					JSONObject iserver = (JSONObject) jsonObject.get("iserver");
+					if (iserver != null) {
+						JSONObject authStatus = (JSONObject) iserver.get("authStatus");
+						if (authStatus != null) {
+							isAuthenticated = (Boolean) authStatus.get("authenticated");
+						}
+					}
 					// System.out.println(line);
 					
 				}
@@ -95,7 +102,7 @@ public class Tickle {
 		//currentTime = System.currentTimeMillis();
 		//}
 		
-		return sessionId;
+		return isAuthenticated;
 	}
 	
 	
@@ -138,7 +145,7 @@ public class Tickle {
 		return response;
 	}
 	
-	void accountPing(){
+	/*void accountPing(){
 		String baseUrl = "https://localhost:5000/v1/api/iserver/accounts";
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
@@ -187,6 +194,6 @@ public class Tickle {
 		}
 		
 		return;
-	}
+	}*/
 
 }

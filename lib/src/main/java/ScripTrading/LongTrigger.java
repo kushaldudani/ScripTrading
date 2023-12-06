@@ -28,7 +28,7 @@ public class LongTrigger {
 	
 	private static String MODIFY_ORDER_URL = "https://localhost:5000/v1/api/iserver/account/U12784344/order/";
 	
-	private static String SYMBOL = "QQQ";
+	//private static String SYMBOL = "QQQ";
 	
 	private static String startTime = "07:15";
 	
@@ -54,7 +54,8 @@ public class LongTrigger {
 		limitPrice = Double.parseDouble(decfor.format(limitPrice));
 		if (limitPrice > 0) {
 			int qty = tradedata.getQty() * 100;
-			String cOID = SYMBOL+triggerTime;
+			//String cOID = SYMBOL+triggerTime;
+			String cOID = "LT"+currentDate+"SE"+320227571;
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionenter.txt", currentDate, "inprogress", "na", 0, 320227571);
 				new Thread(new OrderPlacer(ORDER_URL, getPositionJson(qty,  "LMT", limitPrice, "BUY", cOID), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
@@ -143,7 +144,8 @@ public class LongTrigger {
 		
 		if (orderId.equals("")) {
 			int qty = tradedata.getQty();
-			String cOID = optionContract+SYMBOL+time;
+			//String cOID = optionContract+SYMBOL+time;
+			String cOID = "LT"+currentDate+"OEx"+optionContract;
 			MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionexit.txt", currentDate, "inprogress", "na", strikePrice, optionContract);
 			new Thread(new OrderPlacer(ORDER_URL, getOptionExitJson(qty,  optionContract, "LMT", limitPrice, cOID), currentDate, "/home/kushaldudani/qqq/optionexit.txt",
 					limitPrice+"", strikePrice, cOID, optionContract)).start();
@@ -185,7 +187,8 @@ public class LongTrigger {
 			&& triggerTime.compareTo("07:15") >= 0 && triggerTime.compareTo("09:30") < 0
 				) {
 			int qty = tradedata.getQty();
-			String cOID = optionContract+SYMBOL+triggerTime;
+			//String cOID = optionContract+SYMBOL+triggerTime;
+			String cOID = "LT"+currentDate+"OE"+optionContract;
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionenter.txt", currentDate, "inprogress", "na", targetedStrikePrice, optionContract);
 				new Thread(new OrderPlacer(ORDER_URL, getOptionEnterJson(qty,  optionContract, "LMT", callPriceTotarget, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
@@ -242,7 +245,8 @@ public class LongTrigger {
 		
 		if (triggerTime.compareTo("12:35") >= 0) {
 			int qty = tradedata.getQty() * 100;
-			String cOID = SYMBOL+triggerTime;
+			//String cOID = SYMBOL+triggerTime;
+			String cOID = "LT"+currentDate+"SEx"+320227571;
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571);
 				new Thread(new OrderPlacer(ORDER_URL, getPositionJson(qty, "MKT", 0, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, cOID, 320227571)).start();
@@ -255,7 +259,8 @@ public class LongTrigger {
 			}
 		} else if (limitPrice > 0) {
 			int qty = tradedata.getQty() * 100;
-			String cOID = SYMBOL+triggerTime;
+			//String cOID = SYMBOL+triggerTime;
+			String cOID = "LT"+currentDate+"SEx"+320227571;
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571);
 				new Thread(new OrderPlacer(ORDER_URL, getPositionJson(qty, "LMT", limitPrice, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, cOID, 320227571)).start();

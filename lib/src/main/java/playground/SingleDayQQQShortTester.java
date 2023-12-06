@@ -58,7 +58,7 @@ public class SingleDayQQQShortTester {
 		int increment = 1;
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-11-29");
+		Date runDate = sdf.parse("2023-12-05");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -88,7 +88,7 @@ public class SingleDayQQQShortTester {
 				putVolumeSignal = new LinkedList<>();
 				LinkedList<String> hugePositiveBars = new LinkedList<>();
 				LinkedList<String> hugeNegativeBars = new LinkedList<>();
-				String strikeTime = null; double strike = 0; // Need to be updated with every run
+				String strikeTime = "07:25"; double strike = 384; // Need to be updated with every run
 				double avgVix = 0; // Need to be fixed
 				Map<String, MinuteData> rawVix = null; // Need to be fixed
 				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {

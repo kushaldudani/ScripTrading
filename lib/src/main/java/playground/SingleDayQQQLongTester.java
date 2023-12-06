@@ -60,7 +60,7 @@ public class SingleDayQQQLongTester {
 		
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-11-29");
+		Date runDate = sdf.parse("2023-12-05");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -87,7 +87,7 @@ public class SingleDayQQQLongTester {
 				int noOfEntriesForBull = 0;
 				callVolumeSignal = new LinkedList<>();
 				//LinkedList<String> altCallVolumeSignal = new LinkedList<>();
-				String strikeTime = "07:25"; double strike = 394;   // Need to be updated with every run
+				String strikeTime = null; double strike = 0;   // Need to be updated with every run
 				double avgVix = 0; // Need to be fixed
 				Map<String, MinuteData> rawVix = null; // Need to be fixed
 				LinkedList<String> hugePositiveBars = new LinkedList<>();

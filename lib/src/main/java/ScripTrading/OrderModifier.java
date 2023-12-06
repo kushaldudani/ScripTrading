@@ -101,8 +101,8 @@ public class OrderModifier implements Runnable {
 		String orderIdModified = "";
 		int attempts = 0;
 		while (attempts < 3) {
-			RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
-			client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
+			//RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
+			//client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
 			orderIdModified = modify();
 			
 			if (!orderIdModified.isEmpty()) {

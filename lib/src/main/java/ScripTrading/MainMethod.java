@@ -16,10 +16,10 @@ public class MainMethod {
 		ExecutorService WORKER_THREAD_POOL = Executors.newFixedThreadPool(6);
 		SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 		
-		Map<String, String> tickleMap = Collections.synchronizedMap(new LinkedHashMap<>());
-		TickleManager tickleManager = new TickleManager(tickleMap);
+		//Map<String, String> tickleMap = Collections.synchronizedMap(new LinkedHashMap<>());
+		TickleManager tickleManager = new TickleManager();
 		WORKER_THREAD_POOL.submit(tickleManager);
-		TickleMapProvider.getInstance().setTickleMap(tickleMap);
+		//TickleMapProvider.getInstance().setTickleMap(tickleMap);
 		
 		while (true) {
 			Calendar calendar = Calendar.getInstance();

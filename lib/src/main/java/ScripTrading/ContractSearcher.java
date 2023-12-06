@@ -123,7 +123,7 @@ public class ContractSearcher {
 	}
 	
 	private long search(String baseUrl, String expiryDate, double strike, String monthString, String time, String callOrPut){
-		Util.reauthIfNeeded(TickleMapProvider.getInstance().getTickleMap(), time);
+		//Util.reauthIfNeeded(TickleMapProvider.getInstance().getTickleMap(), time);
 		searchPrequisite("https://localhost:5000/v1/api/iserver/secdef/search");
 		
 		expiryDate = expiryDate.substring(0, 4) + expiryDate.substring(5, 7) + expiryDate.substring(8, 10);

@@ -74,7 +74,7 @@ public class Util {
     	return (time2H - time1H) * 60 * 60 +  (time2M - time1M) * 60 + (time2S - time1S);
     }
 	
-	public static void reauthIfNeeded(Map<String, String> tickleMap, String time) {
+	/*public static void reauthIfNeeded(Map<String, String> tickleMap, String time) {
 		String sessionId = findSessionInLastNMins(tickleMap, 10, time);
 		if (sessionId != null && !sessionId.equals("")) {
 			return;
@@ -99,7 +99,7 @@ public class Util {
 		}
 		
 		return sessionId;
-	}
+	}*/
 	
 	public static Map<String, DayData> deserializeHashMap(String filename) {
 		HashMap<String, DayData> cache = null;

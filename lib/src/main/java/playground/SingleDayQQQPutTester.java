@@ -56,7 +56,7 @@ public class SingleDayQQQPutTester {
 		int increment = 1;
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-11-29");
+		Date runDate = sdf.parse("2023-12-05");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();

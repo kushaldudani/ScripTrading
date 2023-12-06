@@ -1,10 +1,9 @@
 package ScripTrading;
 
-import java.util.Map;
 
 public class TickleMapProvider {
 	
-	private static TickleMapProvider singleInstance = null;
+	/*private static TickleMapProvider singleInstance = null;
 	private Map<String, String> tickleMap;
 	
 	public static synchronized TickleMapProvider getInstance() {
@@ -21,6 +20,6 @@ public class TickleMapProvider {
 	
 	public synchronized Map<String, String> getTickleMap() {
 		return tickleMap;
-	}
+	}*/
 
 }
