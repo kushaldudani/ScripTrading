@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 public class LongOrderTracker implements Runnable {
 	
@@ -18,7 +19,7 @@ public class LongOrderTracker implements Runnable {
 	private Trade optionExitTrade = null;
 	private Trade stockEnterTrade = null;
 	private Trade stockExitTrade = null;
-	private LongTrigger trigger = new LongTrigger();
+	private LongTrigger trigger;
 	private TradeData tradedata = null;
 	private Map<Double, String> strikeToEnterOrderMap = null;
 	private TradeConfirmation optiontradeconfirmation = null;
@@ -28,9 +29,10 @@ public class LongOrderTracker implements Runnable {
 	private double volatility = 0;
 	private String startTime = "07:10";
 	
-	public LongOrderTracker(Map<String, MinuteData> minuteDataMap, Map<String, String> notifictionMap) {
+	public LongOrderTracker(Map<String, MinuteData> minuteDataMap, Map<String, String> notifictionMap, ExecutorService orderThreadPool) {
 		this.minuteDataMap = minuteDataMap;
 		this.notifictionMap = notifictionMap;
+		this.trigger = new LongTrigger(orderThreadPool);
 	}
 
 	@Override

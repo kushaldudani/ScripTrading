@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import playground.GSInterpretation;
 import playground.GSUtil;
@@ -34,6 +35,12 @@ public class LongTrigger {
 	
 	private static String midTime = "11:30";
 	
+	private ExecutorService orderThreadPool;
+	
+	public LongTrigger(ExecutorService orderThreadPool) {
+		this.orderThreadPool = orderThreadPool;
+	}
+	
 	
 	public void stockEnter(Map<String, MinuteData> minuteDataMap, String triggerTime, TradeData tradedata, String currentDate, StringBuilder notifyBuilder, String orderId,
 			LinkedList<String> callVolumeSignal, double strikePrice, String executionInfo) {
@@ -57,13 +64,13 @@ public class LongTrigger {
 			//String cOID = SYMBOL+triggerTime;
 			String cOID = "LT"+currentDate+"SE"+320227571;
 			if (orderId.equals("")) {
-				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionenter.txt", currentDate, "inprogress", "na", 0, 320227571);
-				new Thread(new OrderPlacer(ORDER_URL, getPositionJson(qty,  "LMT", limitPrice, "BUY", cOID), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
-						limitPrice+"", 0, cOID, 320227571)).start();
+				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionenter.txt", currentDate, "inprogress", "na", 0, 320227571, cOID);
+				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getPositionJson(qty,  "LMT", limitPrice, "BUY", cOID), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
+						limitPrice+"", 0, cOID, 320227571));
 				notifyBuilder.append("stockEnter LMT Order Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else {
-				new Thread(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "BUY"), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
-						""+limitPrice, 0, orderId, 320227571)).start();
+				orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "BUY"), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
+						""+limitPrice, 0, orderId, cOID, 320227571));
 				notifyBuilder.append("stockEnter LMT Order Modified : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			}
 		} else {
@@ -142,19 +149,18 @@ public class LongTrigger {
 		double limitPrice = 0.015;
 		limitPrice = Double.parseDouble(decfor.format(limitPrice));
 		
+		String cOID = "LT"+currentDate+"OEx"+optionContract;
 		if (orderId.equals("")) {
 			int qty = tradedata.getQty();
-			//String cOID = optionContract+SYMBOL+time;
-			String cOID = "LT"+currentDate+"OEx"+optionContract;
-			MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionexit.txt", currentDate, "inprogress", "na", strikePrice, optionContract);
-			new Thread(new OrderPlacer(ORDER_URL, getOptionExitJson(qty,  optionContract, "LMT", limitPrice, cOID), currentDate, "/home/kushaldudani/qqq/optionexit.txt",
-					limitPrice+"", strikePrice, cOID, optionContract)).start();
+			MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionexit.txt", currentDate, "inprogress", "na", strikePrice, optionContract, cOID);
+			orderThreadPool.submit(new OrderPlacer(ORDER_URL, getOptionExitJson(qty,  optionContract, "LMT", limitPrice, cOID), currentDate, "/home/kushaldudani/qqq/optionexit.txt",
+					limitPrice+"", strikePrice, cOID, optionContract));
 			notifyBuilder.append("optionExit LMT Order Placed : " + time + " Close Price at that time " + closeAttime + " Limit price used "+ limitPrice + "<br>");
 		} else if (closeAttime > eodCutOffPrice && time.compareTo("12:50") >= 0) {
 			int qty = tradedata.getQty();
 			
 			if (!executionInfo.equals("MKT")) {
-				new Thread(new OrderModifier(MODIFY_ORDER_URL, getOptionExitModifyJson(qty, optionContract), currentDate, "/home/kushaldudani/qqq/optionexit.txt", "MKT", strikePrice, orderId, optionContract)).start();
+				orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getOptionExitModifyJson(qty, optionContract), currentDate, "/home/kushaldudani/qqq/optionexit.txt", "MKT", strikePrice, orderId, cOID, optionContract));
 				notifyBuilder.append("optionExit Order Modified to MKT : " + time + " Close Price at that time " + closeAttime + "<br>");
 			}
 		}
@@ -187,20 +193,19 @@ public class LongTrigger {
 			&& triggerTime.compareTo("07:15") >= 0 && triggerTime.compareTo("09:30") < 0
 				) {
 			int qty = tradedata.getQty();
-			//String cOID = optionContract+SYMBOL+triggerTime;
 			String cOID = "LT"+currentDate+"OE"+optionContract;
 			if (orderId.equals("")) {
-				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionenter.txt", currentDate, "inprogress", "na", targetedStrikePrice, optionContract);
-				new Thread(new OrderPlacer(ORDER_URL, getOptionEnterJson(qty,  optionContract, "LMT", callPriceTotarget, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
-						callPriceTotarget+"", targetedStrikePrice, cOID, optionContract)).start();
+				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionenter.txt", currentDate, "inprogress", "na", targetedStrikePrice, optionContract, cOID);
+				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getOptionEnterJson(qty,  optionContract, "LMT", callPriceTotarget, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
+						callPriceTotarget+"", targetedStrikePrice, cOID, optionContract));
 				notifyBuilder.append("optionEnter LMT Order Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else if (!strikeToEnterOrderMap.containsKey(targetedStrikePrice)) {
-				new Thread(new OrderPlacer(ORDER_URL, getOptionEnterJson(qty,  optionContract, "LMT", callPriceTotarget, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
-						callPriceTotarget+"", targetedStrikePrice, cOID, optionContract)).start();
+				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getOptionEnterJson(qty,  optionContract, "LMT", callPriceTotarget, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
+						callPriceTotarget+"", targetedStrikePrice, cOID, optionContract));
 				notifyBuilder.append("optionEnter new LMT Order with different Strike Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else {
-				new Thread(new OrderModifier(MODIFY_ORDER_URL, getOptionEnterModifyJson(qty,  optionContract, "LMT", callPriceTotarget), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
-						""+callPriceTotarget, targetedStrikePrice, strikeToEnterOrderMap.get(targetedStrikePrice), optionContract)).start();
+				orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getOptionEnterModifyJson(qty,  optionContract, "LMT", callPriceTotarget), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
+						""+callPriceTotarget, targetedStrikePrice, strikeToEnterOrderMap.get(targetedStrikePrice), cOID, optionContract));
 				notifyBuilder.append("optionEnter LMT Order Modified : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			}
 		} else {
@@ -248,12 +253,12 @@ public class LongTrigger {
 			//String cOID = SYMBOL+triggerTime;
 			String cOID = "LT"+currentDate+"SEx"+320227571;
 			if (orderId.equals("")) {
-				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571);
-				new Thread(new OrderPlacer(ORDER_URL, getPositionJson(qty, "MKT", 0, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, cOID, 320227571)).start();
+				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571, cOID);
+				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getPositionJson(qty, "MKT", 0, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, cOID, 320227571));
 				notifyBuilder.append("stockExit MKT Order Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else {
 				if (!executionInfo.equals("MKT")) {
-					new Thread(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "MKT", 0, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, orderId, 320227571)).start();
+					orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "MKT", 0, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, orderId, cOID, 320227571));
 					notifyBuilder.append("stockExit Order Modified to MKT : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 				}
 			}
@@ -262,14 +267,14 @@ public class LongTrigger {
 			//String cOID = SYMBOL+triggerTime;
 			String cOID = "LT"+currentDate+"SEx"+320227571;
 			if (orderId.equals("")) {
-				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571);
-				new Thread(new OrderPlacer(ORDER_URL, getPositionJson(qty, "LMT", limitPrice, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, cOID, 320227571)).start();
+				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571, cOID);
+				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getPositionJson(qty, "LMT", limitPrice, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, cOID, 320227571));
 				notifyBuilder.append("stockExit LMT Order Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else {
 				if (!executionInfo.equals("MKT")) {
 					double prevLimitPrice = Double.parseDouble(executionInfo);
 					if (limitPrice > prevLimitPrice) {
-						new Thread(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, orderId, 320227571)).start();
+						orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, orderId, cOID, 320227571));
 						notifyBuilder.append("stockExit Order Modified with change in LMT price : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 					}
 				}

@@ -8,10 +8,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -30,12 +28,11 @@ public class MarketHistory {
 		}
 		
 		
-		private HttpClient client;
+		private CloseableHttpClient client;
 
 		
 		public MarketHistory() {
-			RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
-			client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
+			client = HttpUtil.createHttpClient();
 		}
 		
 		
@@ -49,13 +46,14 @@ public class MarketHistory {
 			int responseStatusCode = 0;
 			InputStreamReader inputStreamReader = null;
 			BufferedReader bufferedReader = null;
+			CloseableHttpResponse response = null;
 			Map<String, MinuteData> minuteDataMap = new LinkedHashMap<>();
 			//long startTime = System.currentTimeMillis();
 			//long currentTime = System.currentTimeMillis();
 			//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 			try{
 				// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
-				HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
+				response = HttpUtil.get(baseUrl, paramString, client);
 				System.out.println(response.getStatusLine());
 				responseStatusCode = response.getStatusLine().getStatusCode();
 				if (responseStatusCode == 404) {
@@ -122,6 +120,11 @@ public class MarketHistory {
 				if(inputStreamReader != null){
 					try {
 						inputStreamReader.close();
+					} catch (Exception e) {}
+				}
+				if(response != null){
+					try {
+						response.close();
 					} catch (Exception e) {}
 				}
 			}

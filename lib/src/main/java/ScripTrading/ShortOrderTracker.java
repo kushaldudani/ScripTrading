@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 public class ShortOrderTracker implements Runnable {
 	
@@ -18,7 +19,7 @@ public class ShortOrderTracker implements Runnable {
 	private Trade optionExitTrade = null;
 	private Trade stockEnterTrade = null;
 	private Trade stockExitTrade = null;
-	private ShortTrigger trigger = new ShortTrigger();
+	private ShortTrigger trigger;
 	private TradeData tradedata = null;
 	private Map<Double, String> strikeToEnterOrderMap = null;
 	private TradeConfirmation optiontradeconfirmation = null;
@@ -28,9 +29,10 @@ public class ShortOrderTracker implements Runnable {
 	private double volatility = 0;
 	private String startTime = "07:10";
 	
-	public ShortOrderTracker(Map<String, MinuteData> minuteDataMap, Map<String, String> notifictionMap) {
+	public ShortOrderTracker(Map<String, MinuteData> minuteDataMap, Map<String, String> notifictionMap, ExecutorService orderThreadPool) {
 		this.minuteDataMap = minuteDataMap;
 		this.notifictionMap = notifictionMap;
+		this.trigger = new ShortTrigger(orderThreadPool);
 	}
 
 	@Override

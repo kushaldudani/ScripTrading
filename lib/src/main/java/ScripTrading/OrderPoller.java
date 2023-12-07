@@ -9,24 +9,19 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
 public class OrderPoller implements Runnable {
 
-	private HttpClient client;
+	private CloseableHttpClient client;
 	//private Map<Long, Double> conIdToStrike;
 	
 	public OrderPoller() {
-		RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
-		client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
-		
-		//this.conIdToStrike = conIdToStrike;
+		client = HttpUtil.createHttpClient();
 	}
 	
 	@Override
@@ -63,12 +58,12 @@ public class OrderPoller implements Runnable {
 				TradeConfirmation optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/optiontradeconfirmation.txt");
 				if (optionEnterTrade != null && !optionEnterTrade.getOrderId().equals("")
 						&& (optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)) {
-					String localOrderId = "LT"+currentDateString+"OE"+optionEnterTrade.getContract();
+					String localOrderId = optionEnterTrade.getLocalOId();
 					String orderId = null;
 					if (optionEnterTrade.getOrderId().equals("na")) {
 						orderId = pollresultMap.get(localOrderId);
 						if (orderId != null) {
-							MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionenter.txt", currentDateString, optionEnterTrade.getExecutionInfo(), orderId, optionEnterTrade.getStrike(), optionEnterTrade.getContract());
+							MetadataUtil.getInstance().write("/home/kushaldudani/qqq/optionenter.txt", currentDateString, optionEnterTrade.getExecutionInfo(), orderId, optionEnterTrade.getStrike(), optionEnterTrade.getContract(), localOrderId);
 							
 							String strikeenterordermapPath = "/home/kushaldudani/qqq/strikeenterordermap.txt";
 							Map<Double, String> strikeToEnterOrderMap = MetadataUtil.getInstance().readStrikeEnterOrderMap(currentDateString, strikeenterordermapPath);
@@ -90,12 +85,12 @@ public class OrderPoller implements Runnable {
 				TradeConfirmation stockradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/stocktradeconfirmation.txt");
 				if (stockEnterTrade != null && !stockEnterTrade.getOrderId().equals("")
 						&& (stockradeconfirmation == null || stockradeconfirmation.getHasOrderFilled() == false)) {
-					String localOrderId = "LT"+currentDateString+"SE"+stockEnterTrade.getContract();
+					String localOrderId = stockEnterTrade.getLocalOId();
 					String orderId = null;
 					if (stockEnterTrade.getOrderId().equals("na")) {
 						orderId = pollresultMap.get(localOrderId);
 						if (orderId != null) {
-							MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionenter.txt", currentDateString, stockEnterTrade.getExecutionInfo(), orderId, stockEnterTrade.getStrike(), stockEnterTrade.getContract());
+							MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionenter.txt", currentDateString, stockEnterTrade.getExecutionInfo(), orderId, stockEnterTrade.getStrike(), stockEnterTrade.getContract(), localOrderId);
 						}
 					} else {
 						orderId = stockEnterTrade.getOrderId();
@@ -112,12 +107,12 @@ public class OrderPoller implements Runnable {
 				TradeConfirmation stockexittradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/stockexittradeconfirmation.txt");
 				if (stockExitTrade != null && !stockExitTrade.getOrderId().equals("")
 						&& (stockexittradeconfirmation == null || stockexittradeconfirmation.getHasOrderFilled() == false)) {
-					String localOrderId = "LT"+currentDateString+"SEx"+stockExitTrade.getContract();
+					String localOrderId = stockExitTrade.getLocalOId();
 					String orderId = null;
 					if (stockExitTrade.getOrderId().equals("na")) {
 						orderId = pollresultMap.get(localOrderId);
 						if (orderId != null) {
-							MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDateString, stockExitTrade.getExecutionInfo(), orderId, stockExitTrade.getStrike(), stockExitTrade.getContract());
+							MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDateString, stockExitTrade.getExecutionInfo(), orderId, stockExitTrade.getStrike(), stockExitTrade.getContract(), localOrderId);
 						}
 					} else {
 						orderId = stockExitTrade.getOrderId();
@@ -136,12 +131,12 @@ public class OrderPoller implements Runnable {
 				optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/optiontradeconfirmation.txt");
 				if (optionEnterTrade != null && !optionEnterTrade.getOrderId().equals("")
 						&& (optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)) {
-					String localOrderId = "ST"+currentDateString+"OE"+optionEnterTrade.getContract();
+					String localOrderId = optionEnterTrade.getLocalOId();
 					String orderId = null;
 					if (optionEnterTrade.getOrderId().equals("na")) {
 						orderId = pollresultMap.get(localOrderId);
 						if (orderId != null) {
-							MetadataUtil.getInstance().write("/home/kushaldudani/qqq2/optionenter.txt", currentDateString, optionEnterTrade.getExecutionInfo(), orderId, optionEnterTrade.getStrike(), optionEnterTrade.getContract());
+							MetadataUtil.getInstance().write("/home/kushaldudani/qqq2/optionenter.txt", currentDateString, optionEnterTrade.getExecutionInfo(), orderId, optionEnterTrade.getStrike(), optionEnterTrade.getContract(), localOrderId);
 							
 							String strikeenterordermapPath = "/home/kushaldudani/qqq2/strikeenterordermap.txt";
 							Map<Double, String> strikeToEnterOrderMap = MetadataUtil.getInstance().readStrikeEnterOrderMap(currentDateString, strikeenterordermapPath);
@@ -163,12 +158,12 @@ public class OrderPoller implements Runnable {
 				stockradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/stocktradeconfirmation.txt");
 				if (stockEnterTrade != null && !stockEnterTrade.getOrderId().equals("")
 						&& (stockradeconfirmation == null || stockradeconfirmation.getHasOrderFilled() == false)) {
-					String localOrderId = "ST"+currentDateString+"SE"+stockEnterTrade.getContract();
+					String localOrderId = stockEnterTrade.getLocalOId();
 					String orderId = null;
 					if (stockEnterTrade.getOrderId().equals("na")) {
 						orderId = pollresultMap.get(localOrderId);
 						if (orderId != null) {
-							MetadataUtil.getInstance().write("/home/kushaldudani/qqq2/positionenter.txt", currentDateString, stockEnterTrade.getExecutionInfo(), orderId, stockEnterTrade.getStrike(), stockEnterTrade.getContract());
+							MetadataUtil.getInstance().write("/home/kushaldudani/qqq2/positionenter.txt", currentDateString, stockEnterTrade.getExecutionInfo(), orderId, stockEnterTrade.getStrike(), stockEnterTrade.getContract(), localOrderId);
 						}
 					} else {
 						orderId = stockEnterTrade.getOrderId();
@@ -185,12 +180,12 @@ public class OrderPoller implements Runnable {
 				stockexittradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq2/stockexittradeconfirmation.txt");
 				if (stockExitTrade != null && !stockExitTrade.getOrderId().equals("")
 						&& (stockexittradeconfirmation == null || stockexittradeconfirmation.getHasOrderFilled() == false)) {
-					String localOrderId = "ST"+currentDateString+"SEx"+stockExitTrade.getContract();
+					String localOrderId = stockExitTrade.getLocalOId();
 					String orderId = null;
 					if (stockExitTrade.getOrderId().equals("na")) {
 						orderId = pollresultMap.get(localOrderId);
 						if (orderId != null) {
-							MetadataUtil.getInstance().write("/home/kushaldudani/qqq2/positionexit.txt", currentDateString, stockExitTrade.getExecutionInfo(), orderId, stockExitTrade.getStrike(), stockExitTrade.getContract());
+							MetadataUtil.getInstance().write("/home/kushaldudani/qqq2/positionexit.txt", currentDateString, stockExitTrade.getExecutionInfo(), orderId, stockExitTrade.getStrike(), stockExitTrade.getContract(), localOrderId);
 						}
 					} else {
 						orderId = stockExitTrade.getOrderId();
@@ -214,10 +209,11 @@ public class OrderPoller implements Runnable {
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
+		CloseableHttpResponse response = null;
 		String orderStatus = "";
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
-			HttpResponse response = HttpUtil.get(baseUrl, "", client);
+			response = HttpUtil.get(baseUrl, "", client);
 			System.out.println(response.getStatusLine());
 			responseStatusCode = response.getStatusLine().getStatusCode();
 			if (responseStatusCode == 404) {
@@ -265,6 +261,11 @@ public class OrderPoller implements Runnable {
 					inputStreamReader.close();
 				} catch (Exception e) {}
 			}
+			if(response != null){
+				try {
+					response.close();
+				} catch (Exception e) {}
+			}
 		}
 		
 		return orderStatus;
@@ -276,10 +277,11 @@ public class OrderPoller implements Runnable {
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
+		CloseableHttpResponse response = null;
 		Map<String, String> pollresultMap = new LinkedHashMap<>();
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
-			HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
+			response = HttpUtil.get(baseUrl, paramString, client);
 			System.out.println(response.getStatusLine());
 			responseStatusCode = response.getStatusLine().getStatusCode();
 			if (responseStatusCode == 404) {
@@ -315,7 +317,10 @@ public class OrderPoller implements Runnable {
 						JSONObject resultEntry = (JSONObject) resultsIterator.next();
 						String fCOID = (String) resultEntry.get("order_ref");
 						String forderId = (Long) resultEntry.get("orderId") + "";
-						pollresultMap.put(fCOID, forderId);
+						String foStatus = (String) resultEntry.get("status");
+						if ("Submitted".equalsIgnoreCase(foStatus) || "Filled".equalsIgnoreCase(foStatus)) {
+							pollresultMap.put(fCOID, forderId);
+						}
 						/*if (forderId.equals(orderId)) {
 							double executedPrice =  Double.parseDouble((String) resultEntry.get("avgPrice"));
 							long conid = (Long) resultEntry.get("conid");
@@ -340,6 +345,11 @@ public class OrderPoller implements Runnable {
 					inputStreamReader.close();
 				} catch (Exception e) {}
 			}
+			if(response != null){
+				try {
+					response.close();
+				} catch (Exception e) {}
+			}
 		}
 		
 		return pollresultMap;
@@ -350,8 +360,9 @@ public class OrderPoller implements Runnable {
 		int responseStatusCode = 0;
 		InputStreamReader inputStreamReader = null;
 		BufferedReader bufferedReader = null;
+		CloseableHttpResponse response = null;
 		try{
-			HttpResponse response = HttpUtil.get(baseUrl, "", client);
+			response = HttpUtil.get(baseUrl, "", client);
 			System.out.println(response.getStatusLine());
 			responseStatusCode = response.getStatusLine().getStatusCode();
 			if (responseStatusCode == 404) {
@@ -389,6 +400,11 @@ public class OrderPoller implements Runnable {
 			if(inputStreamReader != null){
 				try {
 					inputStreamReader.close();
+				} catch (Exception e) {}
+			}
+			if(response != null){
+				try {
+					response.close();
 				} catch (Exception e) {}
 			}
 		}

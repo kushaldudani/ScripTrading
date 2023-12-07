@@ -22,14 +22,14 @@ public class MetadataUtil {
         return singleInstance;
     }
 	
-	public synchronized void write(String path, String currentDate, String value, String orderId, double strike, long contract) {
+	public synchronized void write(String path, String currentDate, String value, String orderId, double strike, long contract, String localOId) {
 		OutputStreamWriter out = null;
 		BufferedWriter bw = null;
 		try{
 			out = new OutputStreamWriter(new FileOutputStream(new 
 					File(path),false));
 			bw =  new BufferedWriter(out);
-			bw.write(currentDate + "  " + value + "  " + orderId + "  " + strike + "  " + contract);
+			bw.write(currentDate + "  " + value + "  " + orderId + "  " + strike + "  " + contract + "  " + localOId);
 			bw.write("\n");
 		} catch (Exception e) {
 			LoggerUtil.getLogger().info(e.getMessage());
@@ -223,11 +223,12 @@ public class MetadataUtil {
 			String line; 
 			while ((line = br.readLine()) != null) {
 				String[] linsVals = line.split("  ");
-				if (linsVals.length == 5 && currentDate.equals(linsVals[0])) {
+				if (linsVals.length == 6 && currentDate.equals(linsVals[0])) {
 					trade.setExecutionInfo(linsVals[1]);
 					trade.setOrderid(linsVals[2]);
 					trade.setStrike(Double.parseDouble(linsVals[3]));
 					trade.setContract(Long.parseLong(linsVals[4]));
+					trade.setLocalOId(linsVals[5]);
 				}
 			}
 		} catch (Exception e) {

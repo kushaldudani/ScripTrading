@@ -43,10 +43,11 @@ public class MainMethod {
 					MinuteDataManager mdm = new MinuteDataManager(latch, minuteDataMap);
 					WORKER_THREAD_POOL.submit(mdm);
 					
-					LongOrderTracker longorderTracker = new LongOrderTracker(minuteDataMap, longnotifictionMap);
+					ExecutorService orderThreadPool = Executors.newFixedThreadPool(1);
+					LongOrderTracker longorderTracker = new LongOrderTracker(minuteDataMap, longnotifictionMap, orderThreadPool);
 					WORKER_THREAD_POOL.submit(longorderTracker);
 					
-					ShortOrderTracker shortorderTracker = new ShortOrderTracker(minuteDataMap, shortnotifictionMap);
+					ShortOrderTracker shortorderTracker = new ShortOrderTracker(minuteDataMap, shortnotifictionMap, orderThreadPool);
 					WORKER_THREAD_POOL.submit(shortorderTracker);
 					
 					OrderPoller orderPoller = new OrderPoller();

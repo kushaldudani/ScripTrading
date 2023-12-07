@@ -10,11 +10,14 @@ public class Trade {
 	
 	private long contract;
 	
+	private String localOId;
+	
 	public Trade() {
 		this.orderid="";
 		this.executionInfo="";
 		this.strike=0;
 		this.contract=0;
+		this.localOId="";
 	}
 
 	public void setOrderid(String orderid) {
@@ -45,13 +48,21 @@ public class Trade {
 		return contract;
 	}
 
+	public String getLocalOId() {
+		return localOId;
+	}
+
+	public void setLocalOId(String localOId) {
+		this.localOId = localOId;
+	}
+
 	public void setContract(long contract) {
 		this.contract = contract;
 	}
 	
 	@Override
 	public String toString() {
-		return executionInfo + "  " + orderid + "  " + strike + "  " + contract;
+		return executionInfo + "  " + orderid + "  " + strike + "  " + contract + "  " + localOId;
 	}
 
 }
