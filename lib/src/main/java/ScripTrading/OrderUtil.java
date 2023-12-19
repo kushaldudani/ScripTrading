@@ -7,7 +7,7 @@ public class OrderUtil {
 	
 	private static String SYMBOL = "QQQ";
 	
-	static String getOptionEnterJson(int qty, long contractid, String orderType, double limitPrice, String cOID) {
+	static JSONObject getOptionEnterJson(int qty, long contractid, String orderType, double limitPrice, String cOID) {
 		
 		JSONArray orderArray = new JSONArray();
 		
@@ -29,7 +29,7 @@ public class OrderUtil {
         JSONObject topObject = new JSONObject();
         topObject.put("orders", orderArray);
         
-        return topObject.toJSONString();
+        return topObject;
 	}
 	
 	static String getOptionEnterModifyJson(int qty, long contractid, String orderType, double limitPrice) {
@@ -48,7 +48,7 @@ public class OrderUtil {
         return orderObject.toJSONString();
 	}
 	
-	static String getOptionExitJson(int qty, long contractid, String orderType, double limitPrice, String cOID) {
+	static JSONObject getOptionExitJson(int qty, long contractid, String orderType, double limitPrice, String cOID) {
 		
 		JSONArray orderArray = new JSONArray();
 		
@@ -70,7 +70,7 @@ public class OrderUtil {
         JSONObject topObject = new JSONObject();
         topObject.put("orders", orderArray);
         
-        return topObject.toJSONString();
+        return topObject;
 	}
 	
 	static String getOptionExitModifyJson(int qty, long contractid) {
@@ -86,7 +86,7 @@ public class OrderUtil {
         return orderObject.toJSONString();
 	}
 	
-	static String getPositionJson(int qty, String orderType, double limitPrice, String side, String cOID) {
+	static JSONObject getPositionJson(int qty, String orderType, double limitPrice, String side, String cOID) {
 		
 		JSONArray orderArray = new JSONArray();
 		
@@ -108,7 +108,7 @@ public class OrderUtil {
         JSONObject topObject = new JSONObject();
         topObject.put("orders", orderArray);
         
-        return topObject.toJSONString();
+        return topObject;
 	}
 	
 	static String getPositionModifyJson(int qty, String orderType, double limitPrice, String side) {

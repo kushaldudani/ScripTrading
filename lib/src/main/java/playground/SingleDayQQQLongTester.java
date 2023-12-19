@@ -60,7 +60,7 @@ public class SingleDayQQQLongTester {
 		
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-12-05");
+		Date runDate = sdf.parse("2023-12-15");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -99,7 +99,7 @@ public class SingleDayQQQLongTester {
 					//double callAvgVolume = 0; double optionVolumeAtTime = 0;
 					
 					LinkedList<String> altCallVolumeSignal = new LinkedList<>();
-					if (time.compareTo("07:20") >= 0 && time.compareTo("08:55") <= 0) {
+					if (time.compareTo("07:20") >= 0 && time.compareTo("10:20") <= 0) {
 						LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
 						downloadOptionData(alternateStrike - 1, currentDateString, dayData, downloader);
 						calculateOptionVolumeSig(alternateCallOptionQueue, altCallVolumeSignal, alternateStrike - 1, time, dayData);
@@ -124,7 +124,7 @@ public class SingleDayQQQLongTester {
 					
 					// Long Enter
 					String returnedTime = VolumeGraphPatternEntry.bullEntry(dayData, 0.3, time, callVolumeSignal, altCallVolumeSignal, strike, avgVix, rawVix, alternateStrike,
-							hugePositiveBars, hugeNegativeBars);
+							hugePositiveBars, hugeNegativeBars, 0);
 					if (returnedTime != null
 							&& longEnterPrice == 0
 							&& noOfEntriesForBull == 0

@@ -108,7 +108,7 @@ public class QQQPutTester {
 		}
 		
 		/*double premiumPercent = ((maxPutPriceTotarget / closeAtTime) * 100);
-		if (premiumPercent < 0.04) {
+		if (premiumPercent < 0.02) {
 			targetedStrikePrice = targetedStrikePrice + 1;
 			downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
 			if (dayData.getPutDataMap().get(targetedStrikePrice).containsKey(time)) {
@@ -311,9 +311,9 @@ public class QQQPutTester {
 						continue;
 					}
 					
-					if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - strikePrice) / strikePrice) * 100) < -0.6 && shouldAddStopLossAtTime == null) {
-						shouldAddStopLossAtTime = time;
-					}
+					//if ( (((dayData.getMinuteDataMap().get(time).getClosePrice() - strikePrice) / strikePrice) * 100) < -0.6 && shouldAddStopLossAtTime == null) {
+					//	shouldAddStopLossAtTime = time;
+					//}
 					
 					double currrentPutPriceAtStrike = dayData.getPutDataMap().get(strikePrice).get(time).getLowPrice();
 					double currentProfitPercent = ((currrentPutPriceAtStrike / optionSellingTimePrice) * 100);

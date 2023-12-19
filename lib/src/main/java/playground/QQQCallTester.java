@@ -125,7 +125,7 @@ public class QQQCallTester {
 		callPriceTotarget = callPriceTotarget * 1.1;
 		
 		/*double premiumPercent = ((callPriceTotarget / closeAtTime) * 100);
-		if (premiumPercent < 0.04) {
+		if (premiumPercent < 0.02) {
 			targetedStrikePrice = targetedStrikePrice - 1;
 			downloadedMoreData = downloadOptionData(targetedStrikePrice, currentDateString, dayData, downloader, downloadedMoreData);
 			if (dayData.getCallDataMap().get(targetedStrikePrice).containsKey(time)) {
@@ -134,7 +134,7 @@ public class QQQCallTester {
 			callPriceTotarget = callPriceTotarget * 1.1;
 		}*/
 		
-		callPriceTotarget = Math.max(callPriceTotarget, ((0.05 * closeAtTime) / 100));
+		callPriceTotarget = (time.compareTo("08:00") <= 0) ? Math.max(callPriceTotarget, ((0.05 * closeAtTime) / 100)) : Math.max(callPriceTotarget, ((0.05 * closeAtTime) / 100));
 		//callPriceTotarget = callPriceTotarget + ((0.02 * closeAtTime) / 100);
 		
 		return new StrikeWithPrice(targetedStrikePrice, callPriceTotarget, downloadedMoreData);

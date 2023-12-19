@@ -5,9 +5,9 @@ import static ScripTrading.OrderUtil.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 
 import playground.GSInterpretation;
@@ -43,12 +43,12 @@ public class LongTrigger {
 	
 	
 	public void stockEnter(Map<String, MinuteData> minuteDataMap, String triggerTime, TradeData tradedata, String currentDate, StringBuilder notifyBuilder, String orderId,
-			LinkedList<String> callVolumeSignal, double strikePrice, String executionInfo) {
+			TreeSet<String> callVolumeSignal, String executionInfo, String existingCOID) {
 		DecimalFormat decfor = new DecimalFormat("0.00");  
 		double closeAttime = minuteDataMap.get(triggerTime).getClosePrice();
 		double limitPrice = 0;
 		try {
-			boolean entrybool = bullEntry(minuteDataMap, 0.3, triggerTime, callVolumeSignal, strikePrice);
+			boolean entrybool = bullEntry(minuteDataMap, 0.3, triggerTime, callVolumeSignal);
 			if (entrybool) {
 				limitPrice = closeAttime;
 			}
@@ -62,7 +62,7 @@ public class LongTrigger {
 		if (limitPrice > 0) {
 			int qty = tradedata.getQty() * 100;
 			//String cOID = SYMBOL+triggerTime;
-			String cOID = "LT"+currentDate+"SE"+320227571;
+			String cOID = "LT"+currentDate+"SE";
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionenter.txt", currentDate, "inprogress", "na", 0, 320227571, cOID);
 				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getPositionJson(qty,  "LMT", limitPrice, "BUY", cOID), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
@@ -70,7 +70,7 @@ public class LongTrigger {
 				notifyBuilder.append("stockEnter LMT Order Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else {
 				orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "BUY"), currentDate, "/home/kushaldudani/qqq/positionenter.txt",
-						""+limitPrice, 0, orderId, cOID, 320227571));
+						""+limitPrice, 0, orderId, existingCOID, 320227571));
 				notifyBuilder.append("stockEnter LMT Order Modified : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			}
 		} else {
@@ -80,8 +80,7 @@ public class LongTrigger {
 		
 	}
 	
-	private boolean bullEntry(Map<String, MinuteData> minuteDataMap, double ninetyPercentileBarChange, String triggerTime, LinkedList<String> callVolumeSignal, double strike
-			) {
+	private boolean bullEntry(Map<String, MinuteData> minuteDataMap, double ninetyPercentileBarChange, String triggerTime, TreeSet<String> callVolumeSignal) {
 		if (triggerTime.compareTo(startTime) > 0 && triggerTime.compareTo(midTime) < 0) {
 			List<GraphSegment> graphSegments = new ArrayList<>();
 			Map<String, Double> priceWithTime = new LinkedHashMap<>();
@@ -95,7 +94,7 @@ public class LongTrigger {
 			GSInterpretation gsInterpretation = new GSInterpretation();
 			List<IGraphSegment> interpretedGSs = gsInterpretation.interpretedGraphSegments(graphSegments);
 			if (
-					evaluateLong(ninetyPercentileBarChange, interpretedGSs, closeAttime, triggerTime, strike, callVolumeSignal)
+					evaluateLong(ninetyPercentileBarChange, interpretedGSs, closeAttime, triggerTime, callVolumeSignal)
 				) {
 				return true;
 			}
@@ -104,10 +103,8 @@ public class LongTrigger {
 		return false;
 	}
 	
-	private boolean evaluateLong(double ninetyPercentileBarChange, List<IGraphSegment> interpretedGSs, double closeAtTime, String triggerTime, double strike,
-			LinkedList<String> optionVolumeSignalToUse) {
-		//double rawVix = rawVixMap.get("07:45").getClosePrice();
-		double strikeCutOff = strike;
+	private boolean evaluateLong(double ninetyPercentileBarChange, List<IGraphSegment> interpretedGSs, double closeAtTime, String triggerTime,
+			TreeSet<String> callVolumeSignal) {
 		int segmentsSize = interpretedGSs.size();
 		int cntr = segmentsSize - 1;
 		IGraphSegment highestStartD = null;
@@ -126,9 +123,7 @@ public class LongTrigger {
 					&& (highestStartD == null || lastIGS.endPrice > highestStartD.startPrice)
 					&& closeAtTime >= lastIGS.endPrice
 					&& triggerTime.compareTo("07:40") >= 0 
-					&& ( ( triggerTime.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), triggerTime) <= 30) )
-					       || 
-					     ( triggerTime.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice >= strikeCutOff) ) 
+					&& ( ( triggerTime.compareTo("10:20") <= 0 && (callVolumeSignal.size() > 0 && Util.diffTime(callVolumeSignal.last(), triggerTime) <= 30) )
 					   )
 					&& (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
 					
@@ -217,7 +212,7 @@ public class LongTrigger {
 	
 	
 	public void stockExit(Map<String, MinuteData> minuteDataMap, String triggerTime, TradeData tradedata, String currentDate,
-			String orderId, String executionInfo, StringBuilder notifyBuilder, double enterPrice) {
+			String orderId, String executionInfo, StringBuilder notifyBuilder, double enterPrice, String existingCOID) {
 		DecimalFormat decfor = new DecimalFormat("0.00");  
 		double closeAttime = minuteDataMap.get(triggerTime).getClosePrice();
 		List<GraphSegment> graphSegments = new ArrayList<>();
@@ -251,21 +246,21 @@ public class LongTrigger {
 		if (triggerTime.compareTo("12:35") >= 0) {
 			int qty = tradedata.getQty() * 100;
 			//String cOID = SYMBOL+triggerTime;
-			String cOID = "LT"+currentDate+"SEx"+320227571;
+			String cOID = "LT"+currentDate+"SEx";
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571, cOID);
 				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getPositionJson(qty, "MKT", 0, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, cOID, 320227571));
 				notifyBuilder.append("stockExit MKT Order Placed : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 			} else {
 				if (!executionInfo.equals("MKT")) {
-					orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "MKT", 0, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, orderId, cOID, 320227571));
+					orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "MKT", 0, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", "MKT", 0, orderId, existingCOID, 320227571));
 					notifyBuilder.append("stockExit Order Modified to MKT : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 				}
 			}
 		} else if (limitPrice > 0) {
 			int qty = tradedata.getQty() * 100;
 			//String cOID = SYMBOL+triggerTime;
-			String cOID = "LT"+currentDate+"SEx"+320227571;
+			String cOID = "LT"+currentDate+"SEx";
 			if (orderId.equals("")) {
 				MetadataUtil.getInstance().write("/home/kushaldudani/qqq/positionexit.txt", currentDate, "inprogress", "na", 0, 320227571, cOID);
 				orderThreadPool.submit(new OrderPlacer(ORDER_URL, getPositionJson(qty, "LMT", limitPrice, "SELL", cOID), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, cOID, 320227571));
@@ -274,7 +269,7 @@ public class LongTrigger {
 				if (!executionInfo.equals("MKT")) {
 					double prevLimitPrice = Double.parseDouble(executionInfo);
 					if (limitPrice > prevLimitPrice) {
-						orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, orderId, cOID, 320227571));
+						orderThreadPool.submit(new OrderModifier(MODIFY_ORDER_URL, getPositionModifyJson(qty, "LMT", limitPrice, "SELL"), currentDate, "/home/kushaldudani/qqq/positionexit.txt", ""+limitPrice, 0, orderId, existingCOID, 320227571));
 						notifyBuilder.append("stockExit Order Modified with change in LMT price : " + triggerTime + " Close Price at that time " + closeAttime + "<br>");
 					}
 				}

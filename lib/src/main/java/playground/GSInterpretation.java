@@ -44,17 +44,17 @@ public class GSInterpretation {
 	}
 	
 	public void interpret(List<GraphSegment> graphArray, double closeAtTime, String time, double strike, double avgVix, Map<String, MinuteData> rawVix,
-			LinkedList<String> optionVolumeSignalToUse, LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> optionVolumeSignalToUse, LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		double ninetyPercentileBarChange = 0.3;
 		List<IGraphSegment> interpretedGSs = interpretedGraphSegments(graphArray);
 		
-		evaluateLong(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse, hugePositiveBars, hugeNeativeBars);
-		evaluateShort(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse,hugePositiveBars, hugeNeativeBars);
+		evaluateLong(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse, hugePositiveBars, hugeNeativeBars, prevClosePrice);
+		evaluateShort(ninetyPercentileBarChange, graphArray, interpretedGSs, closeAtTime, time, strike, avgVix, rawVix, optionVolumeSignalToUse,hugePositiveBars, hugeNeativeBars, prevClosePrice);
 	}
 	
 	private void evaluateShort(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
 			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse,
-			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		//double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
 		double strikeCutOff = strike; //+ (strike * 0.001); // Changing this to 0 will cut rows 3/24, 3/30 etc.
 		int segmentsSize = interpretedGSs.size();
@@ -76,9 +76,7 @@ public class GSInterpretation {
 					//&& (lowestStartU == null || (((lowestStartU.endPrice - lowestStartU.startPrice) / lowestStartU.startPrice) * 100) <= (2.5 * ninetyPercentileBarChange) ) 
 					&& closeAtTime <= lastIGS.endPrice
 					&& time.compareTo("07:40") >= 0 
-					&& ( ( time.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) )
-						   || 
-						 ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice <= strikeCutOff) ) 
+					&& ( ( time.compareTo("10:20") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) )
 					   )
 					&& (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
 				) {
@@ -89,7 +87,7 @@ public class GSInterpretation {
 
 	private void evaluateLong(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
 			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse,
-			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		//double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
 		double strikeCutOff = strike; 
 		int segmentsSize = interpretedGSs.size();
@@ -111,9 +109,7 @@ public class GSInterpretation {
 					//&& (highestStartD == null || (((highestStartD.startPrice - highestStartD.endPrice) / highestStartD.startPrice) * 100) <= (2.5 * ninetyPercentileBarChange) ) 
 					&& closeAtTime >= lastIGS.endPrice
 					&& time.compareTo("07:40") >= 0 
-					&& ( ( time.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) )
-					       || 
-					     ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice >= strikeCutOff) ) 
+					&& ( ( time.compareTo("10:20") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) )
 					   )
 					&& (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
 					
@@ -268,7 +264,7 @@ public class GSInterpretation {
 	
 	private void evaluateShortExp(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
 			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse,
-			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		//double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
 		double strikeCutOff = strike; //+ (strike * 0.001); // Changing this to 0 will cut rows 3/24, 3/30 etc.
 		int segmentsSize = interpretedGSs.size();
@@ -284,17 +280,27 @@ public class GSInterpretation {
 		
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
+			boolean hasBigUPullBack = false;
+			for (PullBackLevel pbLevel : lastIGS.pullBackLevels) {
+				if (pbLevel.identifier.equals("u") && (((pbLevel.up.price - pbLevel.down.price) / pbLevel.down.price) * 100) >= 0.4 ) {
+					hasBigUPullBack = true;
+				}
+			}
 			//
 			if (lastIGS.identifier.equals("d") 
 					&& (lowestStartU == null || lastIGS.endPrice < lowestStartU.startPrice) 
 					//&& (lowestStartU == null || (((lowestStartU.endPrice - lowestStartU.startPrice) / lowestStartU.startPrice) * 100) <= (2.5 * ninetyPercentileBarChange) ) 
 					&& closeAtTime <= lastIGS.endPrice
 					&& time.compareTo("07:40") >= 0 
-					&& ( ( time.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) && (hugePositiveBars.size() == 0 || hugeNeativeBars.size() == 0) )
-						   || 
-						 ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice <= strikeCutOff) ) 
+					&& ( ( time.compareTo("10:20") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) 
+								 //&& hasBigUPullBack == false
+							      // && (prevClosePrice == 0 || (((prevClosePrice - closeAtTime) / prevClosePrice) * 100) <= (5 * ninetyPercentileBarChange) )
+					           //&& (hugePositiveBars.size() == 0 || hugeNeativeBars.size() == 0 || hugeNeativeBars.get(0).compareTo(hugePositiveBars.get(0)) < 0)
+					           && (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange) )
+						//   || 
+						// ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice <= strikeCutOff) ) 
 					   )
-					&& (((lastIGS.startPrice - lastIGS.endPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
+				
 				) {
 					currrentShortState = GSInterpretationType.STRONG_DIRECTIONAL_SHORT_IN_EARLY_STAGES;
 			}
@@ -303,7 +309,7 @@ public class GSInterpretation {
 
 	private void evaluateLongExp(double ninetyPercentileBarChange, List<GraphSegment> graphSegments, List<IGraphSegment> interpretedGSs, double closeAtTime, String time, double strike,
 			double avgVix, Map<String, MinuteData> rawVixMap, LinkedList<String> optionVolumeSignalToUse,
-			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		//double rawVix = (rawVixMap != null) ? rawVixMap.get("07:45").getClosePrice() : 0;
 		double strikeCutOff = strike; 
 		int segmentsSize = interpretedGSs.size();
@@ -319,18 +325,26 @@ public class GSInterpretation {
 		
 		if (segmentsSize > 0) {
 			IGraphSegment lastIGS = interpretedGSs.get(segmentsSize - 1);
+			boolean hasBigDPullBack = false;
+			for (PullBackLevel pbLevel : lastIGS.pullBackLevels) {
+				if (pbLevel.identifier.equals("d") && (((pbLevel.up.price - pbLevel.down.price) / pbLevel.down.price) * 100) >= 0.4 ) {
+					hasBigDPullBack = true;
+				}
+			}
 			//
 			if (lastIGS.identifier.equals("u")
 					&& (highestStartD == null || lastIGS.endPrice > highestStartD.startPrice)
 					//&& (highestStartD == null || (((highestStartD.startPrice - highestStartD.endPrice) / highestStartD.startPrice) * 100) <= (2.5 * ninetyPercentileBarChange) ) 
 					&& closeAtTime >= lastIGS.endPrice
 					&& time.compareTo("07:40") >= 0 
-					&& ( ( time.compareTo("08:55") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) && (hugePositiveBars.size() == 0 || hugeNeativeBars.size() == 0) )
-					       || 
-					     ( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice >= strikeCutOff) ) 
+					&& ( ( time.compareTo("10:20") <= 0 && (optionVolumeSignalToUse.size() > 0 && Util.diffTime(optionVolumeSignalToUse.peekLast(), time) <= 30) 
+					              //&& hasBigDPullBack == false
+					             // && (prevClosePrice == 0 || (((closeAtTime - prevClosePrice) / prevClosePrice) * 100) <= (5 * ninetyPercentileBarChange) )
+					            //&& (hugePositiveBars.size() == 0 || hugeNeativeBars.size() == 0 || hugePositiveBars.get(0).compareTo(hugeNeativeBars.get(0)) < 0)
+					            && (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)  )
+					    //   || 
+					     //( time.compareTo("10:30") >= 0 && (strike > 0 && lastIGS.endPrice >= strikeCutOff) ) 
 					   )
-					&& (((lastIGS.endPrice - lastIGS.startPrice) / lastIGS.startPrice) * 100) <= (6 * ninetyPercentileBarChange)
-					
 				) {
 				
 				currrentLongState = GSInterpretationType.STRONG_DIRECTIONAL_LONG_IN_EARLY_STAGES;

@@ -241,7 +241,7 @@ public class VolumeGraphPatternEntry {
 	public static String bullEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> callVolumeSignal, 
 			LinkedList<String> altCallVolumeSignal, double strike,
 			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike,
-			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 		
 		if (time.compareTo(startTime) > 0 && time.compareTo(midTime) < 0) {
@@ -260,7 +260,7 @@ public class VolumeGraphPatternEntry {
 			
 			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altCallVolumeSignal, hugePositiveBars, hugeNeativeBars);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altCallVolumeSignal, hugePositiveBars, hugeNeativeBars, prevClosePrice);
 			/*System.out.println("In entry " + time + " Strike " + strike);
 			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(callVolumeSignal);
@@ -303,7 +303,7 @@ public class VolumeGraphPatternEntry {
 	
 	public static String bearEntry(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> putVolumeSignal, LinkedList<String> altPutVolumeSignal, double strike,
 			double avgVix, Map<String, MinuteData> rawVix, double alternateStrike,
-			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
+			LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars, double prevClosePrice) {
 		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 		
 		
@@ -323,7 +323,7 @@ public class VolumeGraphPatternEntry {
 			
 			
 			GSInterpretation gsInterpretation = new GSInterpretation();
-			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altPutVolumeSignal, hugePositiveBars, hugeNeativeBars);
+			gsInterpretation.interpret(graphSegments, closeAtTime, time, strike, avgVix, rawVix, altPutVolumeSignal, hugePositiveBars, hugeNeativeBars, prevClosePrice);
 			/*System.out.println("In entry " + time + " Strike " + strike);
 			System.out.println("Avg Vix " + avgVix + " Raw Vix " + rawVix.get(time).getClosePrice());
 			System.out.println(putVolumeSignal);
@@ -354,25 +354,25 @@ public class VolumeGraphPatternEntry {
 	public static void calculateBarSizes(DayData dayData, double ninetyPercentileBarChange, String time, LinkedList<String> hugePositiveBars, LinkedList<String> hugeNeativeBars) {
 		double closeAtTime = dayData.getMinuteDataMap().get(time).getClosePrice();
 		double openAtTime = dayData.getMinuteDataMap().get(time).getOpenPrice();
-		if (time.compareTo("06:45") >= 0) {
+		if (time.compareTo("06:35") >= 0) {
 			double close5MinsAgo = dayData.getMinuteDataMap().get(Util.timeNMinsAgo(time, 5)).getClosePrice();
 			double open5MinsAgo = dayData.getMinuteDataMap().get(Util.timeNMinsAgo(time, 5)).getOpenPrice();
 			
 			if ((((closeAtTime - openAtTime) / openAtTime) * 100) > ninetyPercentileBarChange) {
 				hugePositiveBars.add(time);
-			} else if ( (((closeAtTime - openAtTime) / openAtTime) * 100) > (ninetyPercentileBarChange * 0.66)
+			} /*else if ( (((closeAtTime - openAtTime) / openAtTime) * 100) > (ninetyPercentileBarChange * 0.66)
 					     && (((close5MinsAgo - open5MinsAgo) / open5MinsAgo) * 100) > (ninetyPercentileBarChange * 0.66)
 					  ) {
 				hugePositiveBars.add(time);
-			}
+			}*/
 			
 			if ((((closeAtTime - openAtTime) / openAtTime) * 100) < (-1 * ninetyPercentileBarChange)) {
 				hugeNeativeBars.add(time);
-			} else if ( (((closeAtTime - openAtTime) / openAtTime) * 100) < (-1 * ninetyPercentileBarChange * 0.66)
+			} /*else if ( (((closeAtTime - openAtTime) / openAtTime) * 100) < (-1 * ninetyPercentileBarChange * 0.66)
 					     && (((close5MinsAgo - open5MinsAgo) / open5MinsAgo) * 100) < (-1 * ninetyPercentileBarChange * 0.66)
 					  ) {
 				hugeNeativeBars.add(time);
-			}
+			}*/
 		}
 	}
 	

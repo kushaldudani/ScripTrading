@@ -2,6 +2,8 @@ package ScripTrading;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -25,8 +27,8 @@ public class OrderPlacer implements Runnable {
         int qty = 1;
         long optionContract = 667566485;
         String cOID = "LT"+currentDate+"OE"+optionContract;
-        OrderPlacer op = new OrderPlacer(ORDER_URL, OrderUtil.getOptionEnterJson(qty,  optionContract, "LMT", 10.0, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
-				"10.0", 390, cOID, optionContract);
+        //OrderPlacer op = new OrderPlacer(ORDER_URL, OrderUtil.getOptionEnterJson(qty,  optionContract, "LMT", 10.0, cOID), currentDate, "/home/kushaldudani/qqq/optionenter.txt",
+		//		"10.0", 390, cOID, optionContract);
         //String orderId = op.place();
 		//System.out.println(orderId);
         //String orderId = op.pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=filled", cOID);
@@ -38,7 +40,7 @@ public class OrderPlacer implements Runnable {
 	
 	private CloseableHttpClient client;
 	private String baseUrl;
-	private String orderJson;
+	private JSONObject orderJson;
 	private String currentDate;
 	private String writePath;
 	private String eInfoToWrite;
@@ -48,7 +50,7 @@ public class OrderPlacer implements Runnable {
 	private String directory;
 
 	
-	public OrderPlacer(String baseUrl, String orderJson, String currentDate, String writePath,
+	public OrderPlacer(String baseUrl, JSONObject orderJson, String currentDate, String writePath,
 			String eInfoToWrite, double strike, String cOID, long contract) {
 		this.client = HttpUtil.createHttpClient();
 		
@@ -65,6 +67,9 @@ public class OrderPlacer implements Runnable {
 	
 	@Override
 	public void run() {
+		Calendar calendar = Calendar.getInstance();
+		SimpleDateFormat secondsFormatter = new SimpleDateFormat("HH:mm:ss");
+		
 		TradeData tradedata = MetadataUtil.getInstance().readTradeData("/home/kushaldudani/" + directory +"/metadata.txt");
 		Trade existingTrade = MetadataUtil.getInstance().readTrade(currentDate, writePath);
 		String existingOrderId = "";
@@ -109,25 +114,25 @@ public class OrderPlacer implements Runnable {
 		PlaceReply newOrderPlaceReply = new PlaceReply();
 		int attempts = 0;
 		while (attempts < 3) {
-			//String newOId = pollOrder("https://localhost:5000/v1/api/iserver/account/orders", "?filters=submitted,filled", cOID);
-			//if (!newOId.isEmpty()) {
-			//	newOrderPlaceReply.orderId = newOId;
-			//	break;
-			//}
-			
-			//RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(10*1000).setConnectTimeout(10*1000).build();
-			//client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
-			if (newOrderPlaceReply == null || newOrderPlaceReply.replyUrl == null) {
-				newOrderPlaceReply = place();
-			} else {
-				newOrderPlaceReply = confirmReply(newOrderPlaceReply.replyUrl, newOrderPlaceReply.replyJson);
+			Map<String, String> pollresultMap = OrderPollerUtil.getInstance().pollOrderInactive("https://localhost:5000/v1/api/iserver/account/orders", "", client);
+			LoggerUtil.getLogger().info("Polled Inactive maps " + pollresultMap);
+			if (pollresultMap.get(cOID) != null) {
+				calendar.setTimeInMillis(System.currentTimeMillis());
+				cOID = cOID + secondsFormatter.format(calendar.getTime());
+				((JSONObject) ((JSONArray) orderJson.get("orders")).get(0)).put("cOID", cOID);
 			}
+			
+			//if (newOrderPlaceReply == null || newOrderPlaceReply.replyUrl == null) {
+				newOrderPlaceReply = place();
+			//} else {
+			//	newOrderPlaceReply = confirmReply(newOrderPlaceReply.replyUrl, newOrderPlaceReply.replyJson);
+			//}
 			
 			if (!(newOrderPlaceReply.orderId.isEmpty())) {
 				break;
 			} else {
 				try {
-					Thread.sleep(5000);
+					Thread.sleep(15000);
 				} catch (Exception e1) {}
 			}
 			
@@ -162,7 +167,7 @@ public class OrderPlacer implements Runnable {
 		//while (responseStatusCode != 200 && (currentTime - startTime) < 60000) {
 		try{
 			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
-			response = HttpUtil.post(baseUrl, orderJson, client);
+			response = HttpUtil.post(baseUrl, orderJson.toJSONString(), client);
 			System.out.println(response.getStatusLine());
 			//System.out.println(response);
 			responseStatusCode = response.getStatusLine().getStatusCode();
@@ -327,131 +332,6 @@ public class OrderPlacer implements Runnable {
 		
 		return placeReply;
 	}
-	
-	/*private String pollOrder(String baseUrl, String paramString, String cOID) {
-		accountPing();
-		
-		int responseStatusCode = 0;
-		InputStreamReader inputStreamReader = null;
-		BufferedReader bufferedReader = null;
-		String orderId = "";
-		try{
-			// writer = new BufferedWriter(new FileWriter("data2/" + symbol + ".csv", false));
-			HttpResponse response = HttpUtil.get(baseUrl, paramString, client);
-			System.out.println(response.getStatusLine());
-			responseStatusCode = response.getStatusLine().getStatusCode();
-			if (responseStatusCode == 404) {
-				System.out.println("pollOrder responseStatusCode 404 ");
-				LoggerUtil.getLogger().info("pollOrder responseStatusCode 404 ");
-				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
-				//Thread.sleep(5000);
-				//break;
-			}
-			if(responseStatusCode == 500){
-				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
-				bufferedReader = new BufferedReader(inputStreamReader);
-				String line;
-				while ((line = bufferedReader.readLine()) != null) {
-					System.out.println(line);
-					LoggerUtil.getLogger().info(line);
-				}
-			}
-			if(responseStatusCode == 200){
-				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
-				bufferedReader = new BufferedReader(inputStreamReader);
-				String line;  
-				//SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
-		        //Calendar calendar = Calendar.getInstance();
-				while ((line = bufferedReader.readLine()) != null) {
-					//if (line.contains("56.67")) {
-						System.out.println(line);
-					JSONParser parser = new JSONParser(); 
-					JSONObject jsonObject = (JSONObject) parser.parse(line);
-					JSONArray jsonArray = (JSONArray) jsonObject.get("orders");
-					Iterator resultsIterator = jsonArray.iterator();
-					while(resultsIterator.hasNext()) {
-						JSONObject resultEntry = (JSONObject) resultsIterator.next();
-						String fCOID = (String) resultEntry.get("order_ref");
-						String foDesc = (String) resultEntry.get("orderDesc");
-						String foId = (Long) resultEntry.get("orderId") + "";
-						String foLimitPrice = (String) resultEntry.get("price");
-						LoggerUtil.getLogger().info("OrderPoller in OrderPlacer order_ref " + fCOID + " orderDesc " + foDesc + " Limit price " + foLimitPrice + " orderId " + foId);
-						if (cOID.equals(fCOID)) {
-							orderId =  foId;
-						}
-					}
-					
-				}
-			}
-		}catch(Exception e){
-			//e.printStackTrace();
-			LoggerUtil.getLogger().info(e.getMessage());
-		}finally{
-			if(bufferedReader != null){
-				try {
-					bufferedReader.close();
-				} catch (Exception e) {}
-			}
-			if(inputStreamReader != null){
-				try {
-					inputStreamReader.close();
-				} catch (Exception e) {}
-			}
-		}
-		
-		return orderId;
-	}
-	
-	void accountPing(){
-		String baseUrl = "https://localhost:5000/v1/api/iserver/accounts";
-		int responseStatusCode = 0;
-		InputStreamReader inputStreamReader = null;
-		BufferedReader bufferedReader = null;
-		try{
-			HttpResponse response = HttpUtil.get(baseUrl, "", client);
-			System.out.println(response.getStatusLine());
-			responseStatusCode = response.getStatusLine().getStatusCode();
-			if (responseStatusCode == 404) {
-				System.out.println("tickle responseStatusCode 404 ");
-				LoggerUtil.getLogger().info("tickle responseStatusCode 404 ");
-				//cache.put(symbol + "-" + date, new Record(null, null, null, null));
-				//Thread.sleep(5000);
-			}
-			if(responseStatusCode == 500){
-				inputStreamReader = new InputStreamReader(response.getEntity().getContent());
-				bufferedReader = new BufferedReader(inputStreamReader);
-				String line;
-				while ((line = bufferedReader.readLine()) != null) {
-					System.out.println(line);
-					LoggerUtil.getLogger().info(line);
-				}
-			}
-			if(responseStatusCode == 200){
-				//inputStreamReader = new InputStreamReader(response.getEntity().getContent());
-				//bufferedReader = new BufferedReader(inputStreamReader);
-				//String line;  
-				//while ((line = bufferedReader.readLine()) != null) {
-					
-					
-				//}
-			}
-		}catch(Exception e){
-			LoggerUtil.getLogger().info(e.getMessage());
-		}finally{
-			if(bufferedReader != null){
-				try {
-					bufferedReader.close();
-				} catch (Exception e) {}
-			}
-			if(inputStreamReader != null){
-				try {
-					inputStreamReader.close();
-				} catch (Exception e) {}
-			}
-		}
-		
-		return;
-	}*/
 	
 	
 	static class PlaceReply {

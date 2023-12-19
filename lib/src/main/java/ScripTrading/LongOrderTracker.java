@@ -5,29 +5,30 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 
 public class LongOrderTracker implements Runnable {
 	
 	private Map<String, MinuteData> minuteDataMap;
 	private Map<String, String> notifictionMap;
-	private Trade optionEnterTrade = null;
-	private Trade optionExitTrade = null;
+	//private Trade optionEnterTrade = null;
+	//private Trade optionExitTrade = null;
 	private Trade stockEnterTrade = null;
 	private Trade stockExitTrade = null;
 	private LongTrigger trigger;
 	private TradeData tradedata = null;
-	private Map<Double, String> strikeToEnterOrderMap = null;
-	private TradeConfirmation optiontradeconfirmation = null;
+	//private Map<Double, String> strikeToEnterOrderMap = null;
+	//private TradeConfirmation optiontradeconfirmation = null;
 	private TradeConfirmation stocktradeconfirmation = null;
 	private TradeConfirmation stockexittradeconfirmation = null;
 	private Set<String> timeTracker = new HashSet<>();
 	private double volatility = 0;
 	private String startTime = "07:10";
+	TreeSet<String> callVolumeSignal = new TreeSet<>();
 	
 	public LongOrderTracker(Map<String, MinuteData> minuteDataMap, Map<String, String> notifictionMap, ExecutorService orderThreadPool) {
 		this.minuteDataMap = minuteDataMap;
@@ -51,22 +52,22 @@ public class LongOrderTracker implements Runnable {
 		String timeToTrigger = Util.findNearestFiveMinute(shorttimeFormatter.format(currentDate));
 		timeToTrigger = Util.timeNMinsAgo(timeToTrigger, 5);
 		
-		Map<Double, Long> strikeToConId = new LinkedHashMap<>();
+		//Map<Double, Long> strikeToConId = new LinkedHashMap<>();
 		
 		while (timeToTrigger.compareTo("12:55") < 0) {
 			try {
 				if (minuteDataMap.containsKey(timeToTrigger) && !timeTracker.contains(timeToTrigger)) {
 					StringBuilder notifyBuilder = new StringBuilder();
 					double avgVolatility = MetadataUtil.getInstance().readVolatilityData();
-					optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/optiontradeconfirmation.txt");
+					//optiontradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/optiontradeconfirmation.txt");
 					stocktradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/stocktradeconfirmation.txt");
 					stockexittradeconfirmation = MetadataUtil.getInstance().readTradeConfirmation(currentDateString, "/home/kushaldudani/qqq/stockexittradeconfirmation.txt");
 					tradedata = MetadataUtil.getInstance().readTradeData("/home/kushaldudani/qqq/metadata.txt");
-					strikeToEnterOrderMap = MetadataUtil.getInstance().readStrikeEnterOrderMap(currentDateString, "/home/kushaldudani/qqq/strikeenterordermap.txt");
-					optionEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/optionenter.txt");
-					notifyBuilder.append("optionEnterTrade : " + optionEnterTrade + "<br>");
-					optionExitTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/optionexit.txt");
-					notifyBuilder.append("optionExitTrade : " + optionExitTrade + "<br>");
+					//strikeToEnterOrderMap = MetadataUtil.getInstance().readStrikeEnterOrderMap(currentDateString, "/home/kushaldudani/qqq/strikeenterordermap.txt");
+					//optionEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/optionenter.txt");
+					//notifyBuilder.append("optionEnterTrade : " + optionEnterTrade + "<br>");
+					//optionExitTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/optionexit.txt");
+					//notifyBuilder.append("optionExitTrade : " + optionExitTrade + "<br>");
 					stockEnterTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/positionenter.txt");
 					notifyBuilder.append("stockEnterTrade : " + stockEnterTrade + "<br>");
 					stockExitTrade = MetadataUtil.getInstance().readTrade(currentDateString, "/home/kushaldudani/qqq/positionexit.txt");
@@ -84,7 +85,7 @@ public class LongOrderTracker implements Runnable {
 					}
 					
 					// option enter
-					if ((optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)
+					/*if ((optiontradeconfirmation == null || optiontradeconfirmation.getHasOrderFilled() == false)
 							&& volatility < (1.66 * avgVolatility) && tradedata != null) {
 						double closeAttime = minuteDataMap.get(timeToTrigger).getClosePrice();
 						double targetedStrikePrice = getTargetedStrikePrice(timeToTrigger);
@@ -115,7 +116,7 @@ public class LongOrderTracker implements Runnable {
 							trigger.optionEnter(minuteDataMap, timeToTrigger, targetedStrikePrice, currentDateString, strikeToConId.get(targetedStrikePrice), notifyBuilder, callPriceTotarget, orderId, tradedata,
 									strikeToEnterOrderMap);
 						}
-					}
+					}*/
 					// stock enter
 					if (volatility < (1.66 * avgVolatility) && tradedata != null //&& optiontradeconfirmation != null && optiontradeconfirmation.getHasOrderFilled()
 							&& (stocktradeconfirmation == null || stocktradeconfirmation.getHasOrderFilled() == false)
@@ -126,34 +127,34 @@ public class LongOrderTracker implements Runnable {
 							orderId = stockEnterTrade.getOrderId();
 						}
 						
-						LinkedList<String> callVolumeSignal = new LinkedList<>();
-						if (timeToTrigger.compareTo("07:20") >= 0 && timeToTrigger.compareTo("08:55") <= 0) {
+						LinkedList<String> callVolumeSignalLocal = new LinkedList<>();
+						if (timeToTrigger.compareTo("07:20") >= 0 && timeToTrigger.compareTo("10:20") <= 0) {
 							double strikeUsed = getTargetedStrikePrice(timeToTrigger);
 							LoggerUtil.getLogger().info("LongOrderTracker " + timeToTrigger + " StockEnter Strike to do volume calc " + strikeUsed);
 						
 							LinkedList<Double> callOptionQueue = new LinkedList<>();
 							Map<String, MinuteData> mDataMap = new PolygonMarketHistory().dataWithRetries(currentDateString, strikeUsed, "C");
-							calculateCallVolumeSignal(callVolumeSignal, callOptionQueue, timeToTrigger, mDataMap);
+							calculateCallVolumeSignal(callVolumeSignalLocal, callOptionQueue, timeToTrigger, mDataMap);
 							notifyBuilder.append("StockEnter Info : Call Volume Queue " + callOptionQueue + " StrikeUsed " + strikeUsed + "<br>");
 							
 							callOptionQueue = new LinkedList<>();
 							mDataMap = new PolygonMarketHistory().dataWithRetries(currentDateString, strikeUsed + 1, "C");
-							calculateCallVolumeSignal(callVolumeSignal, callOptionQueue, timeToTrigger, mDataMap);
+							calculateCallVolumeSignal(callVolumeSignalLocal, callOptionQueue, timeToTrigger, mDataMap);
 							notifyBuilder.append("StockEnter Info : Call Volume Queue " + callOptionQueue + " StrikeUsed " + (strikeUsed + 1) + "<br>");
 							
 							callOptionQueue = new LinkedList<>();
 							mDataMap = new PolygonMarketHistory().dataWithRetries(currentDateString, strikeUsed - 1, "C");
-							calculateCallVolumeSignal(callVolumeSignal, callOptionQueue, timeToTrigger, mDataMap);
+							calculateCallVolumeSignal(callVolumeSignalLocal, callOptionQueue, timeToTrigger, mDataMap);
 							notifyBuilder.append("StockEnter Info : Call Volume Queue " + callOptionQueue + " StrikeUsed " + (strikeUsed - 1) + "<br>");
 							
-							callVolumeSignal.sort(String::compareToIgnoreCase);
+							callVolumeSignal.addAll(callVolumeSignalLocal);
 						}
 						notifyBuilder.append("StockEnter Info : Call Volume Signal " + callVolumeSignal + "<br>");
 						
-						trigger.stockEnter(minuteDataMap, timeToTrigger, tradedata, currentDateString, notifyBuilder, orderId, callVolumeSignal, optiontradeconfirmation.getStrike(), stockEnterTrade.getExecutionInfo());
+						trigger.stockEnter(minuteDataMap, timeToTrigger, tradedata, currentDateString, notifyBuilder, orderId, callVolumeSignal, stockEnterTrade.getExecutionInfo(), stockEnterTrade.getLocalOId());
 					}
 					// option exit
-					if (tradedata != null && optiontradeconfirmation != null && optiontradeconfirmation.getHasOrderFilled()
+					/*if (tradedata != null && optiontradeconfirmation != null && optiontradeconfirmation.getHasOrderFilled()
 							&& (optionExitTrade == null || !optionExitTrade.getExecutionInfo().equals("inprogress"))) {
 						double enteredStrike = optiontradeconfirmation.getStrike();
 						//MinuteData mData = new PolygonMarketHistory().data(currentDateString, enteredStrike, "C").get(timeToTrigger);
@@ -177,7 +178,7 @@ public class LongOrderTracker implements Runnable {
 						if (strikeToConId.containsKey(enteredStrike)) {
 							trigger.optionExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, strikeToConId.get(enteredStrike), notifyBuilder, orderId, optionExitTrade.getExecutionInfo(), enteredStrike);
 						}
-					}
+					}*/
 					// stock exit
 					if (tradedata != null && stocktradeconfirmation != null && stocktradeconfirmation.getHasOrderFilled()
 							&& (stockexittradeconfirmation == null || stockexittradeconfirmation.getHasOrderFilled() == false)
@@ -190,7 +191,7 @@ public class LongOrderTracker implements Runnable {
 						
 						double enterPrice = Double.parseDouble(stockEnterTrade.getExecutionInfo());
 						
-						trigger.stockExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, orderId, stockExitTrade.getExecutionInfo(), notifyBuilder, enterPrice);
+						trigger.stockExit(minuteDataMap, timeToTrigger, tradedata, currentDateString, orderId, stockExitTrade.getExecutionInfo(), notifyBuilder, enterPrice, stockExitTrade.getLocalOId());
 					}
 					
 					timeTracker.add(timeToTrigger);

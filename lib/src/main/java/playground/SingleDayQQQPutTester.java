@@ -56,7 +56,7 @@ public class SingleDayQQQPutTester {
 		int increment = 1;
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-12-05");
+		Date runDate = sdf.parse("2023-12-15");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -92,6 +92,7 @@ public class SingleDayQQQPutTester {
 			double prevTargetedStrikePrice = 0;
 			double putPriceTotarget = 0;
 			for (String time : dayData.getMinuteDataMap().keySet()) {
+				//System.out.println(time + "  " + targetedStrikePrice + "  " + putPriceTotarget);
 				if (putPriceTotarget > 0
 						&& dayData.getPutDataMap().get(targetedStrikePrice).containsKey(time) 
 						&& dayData.getPutDataMap().get(targetedStrikePrice).get(time).getHighPrice() >= putPriceTotarget

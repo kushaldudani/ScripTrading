@@ -58,7 +58,7 @@ public class SingleDayQQQShortTester {
 		int increment = 1;
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-		Date runDate = sdf.parse("2023-12-05");
+		Date runDate = sdf.parse("2023-12-15");
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTimeInMillis(System.currentTimeMillis());
 		Map<String, DayData> dayDataMap = new LinkedHashMap<>();
@@ -88,7 +88,7 @@ public class SingleDayQQQShortTester {
 				putVolumeSignal = new LinkedList<>();
 				LinkedList<String> hugePositiveBars = new LinkedList<>();
 				LinkedList<String> hugeNegativeBars = new LinkedList<>();
-				String strikeTime = "07:25"; double strike = 384; // Need to be updated with every run
+				String strikeTime = null; double strike = 0; // Need to be updated with every run
 				double avgVix = 0; // Need to be fixed
 				Map<String, MinuteData> rawVix = null; // Need to be fixed
 				while (time.compareTo(VolumeGraphPatternEntry.closeTime) < 0) {
@@ -96,7 +96,7 @@ public class SingleDayQQQShortTester {
 					double alternateStrike = getTargetedStrike(dayData, time);
 					//String key = currentDateString + "  " + time;
 					LinkedList<String> altPutVolumeSignal = new LinkedList<>();
-					if (time.compareTo("07:20") >= 0 && time.compareTo("08:55") <= 0) {
+					if (time.compareTo("07:20") >= 0 && time.compareTo("10:20") <= 0) {
 						LinkedList<Double> alternateCallOptionQueue = new LinkedList<>();
 						downloadOptionData(alternateStrike - 1, currentDateString, dayData, downloader);
 						calculateOptionVolumeSig(alternateCallOptionQueue, altPutVolumeSignal, alternateStrike - 1, time, dayData);
@@ -121,7 +121,7 @@ public class SingleDayQQQShortTester {
 					
 					// Short Enter
 					String returnedTime = VolumeGraphPatternEntry.bearEntry(dayData, 0.3, time, putVolumeSignal, altPutVolumeSignal, strike, avgVix, rawVix, alternateStrike,
-							hugePositiveBars, hugeNegativeBars);
+							hugePositiveBars, hugeNegativeBars, 0);
 					if (returnedTime != null
 							&& shortEnterPrice == 0
 							&& noOfEntriesForBear == 0) {
